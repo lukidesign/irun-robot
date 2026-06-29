@@ -753,7 +753,7 @@ A wind-damaged site required bolt reinforcement and structure realignment after 
 ];
 
 // PV Expo (2026) · Data Q&A Agent recommended dialogues (CN+EN)
-// Synced from 2026光伏展问数推荐对话.md
+// Synced from docs/conversations/2026光伏展问数推荐对话.md
 const PV_EXPO_QUERY_QA = [
   {
     agent: 'query',
@@ -1060,7 +1060,7 @@ function buildHealthAdviceAnswer(plantKey, zh) {
 }
 
 // PV Expo (2026) · Operate Agent recommended dialogues (CN+EN)
-// Synced from 运营智能体对话.md
+// Synced from docs/conversations/运营智能体对话.md
 const PV_EXPO_OPS_QA = [
   {
     agent: 'ops',
@@ -1091,7 +1091,7 @@ There is a **slight risk**, and the expected monthly KPI shortfall is **2,570.1 
 ];
 
 // PV Expo (2026) · Inspect Agent recommended dialogues (CN+EN)
-// Synced from 2026光伏展巡检智能体推荐对话.md
+// Synced from docs/conversations/2026光伏展巡检智能体推荐对话.md
 const PV_EXPO_INSP_QA = [
   {
     agent: 'insp',
@@ -1168,7 +1168,7 @@ picture1：![jdxl4.jpeg](assets/insp-expo/3a56a18f-98b1-45be-ac69-8906c6f830c3.j
 ];
 
 // PV Expo (2026) · Warning Agent preset Q&A (CN+EN)
-// Synced from 2026光伏展会预警智能体预设问答.md
+// Synced from docs/conversations/2026光伏展会预警智能体预设问答.md
 const PV_EXPO_WARN_QA = [
   {
     agent: 'warn',
@@ -1219,7 +1219,7 @@ const PV_EXPO_WARN_QA = [
 ];
 
 // PV Expo (2026) · Schedule Agent recommended dialogues (CN+EN)
-// Synced from 2026光伏展排程智能体推荐对话.md
+// Synced from docs/conversations/2026光伏展排程智能体推荐对话.md
 const PV_EXPO_SCHED_QA = [
   {
     agent: 'sched',
@@ -1425,7 +1425,7 @@ function buildOrderDispatchFirstAlarmAnswer(zh) {
 }
 
 // PV Expo (2026) · Work Order Agent recommended dialogues (CN+EN)
-// Synced from 2026光伏展工单智能体推荐对话.md
+// Synced from docs/conversations/2026光伏展工单智能体推荐对话.md
 const PV_EXPO_ORDER_QA = [
   {
     agent: 'order',
@@ -1535,7 +1535,7 @@ const PV_EXPO_ORDER_QA = [
 ];
 
 // PV Expo (2026) · Safety Agent recommended dialogues (CN+EN)
-// Synced from 安全智能体问答.md
+// Synced from docs/conversations/安全智能体问答.md
 const PV_EXPO_SAFE_QA = [
   {
     agent: 'safe',
@@ -1979,7 +1979,7 @@ A comparative evaluation of the array's behavior from pre-fault baselin
 ];
 
 // PV Expo (2026) · Diagnosis Agent recommended dialogues (CN+EN)
-// Synced from 2026光伏展诊断智能体推荐对话.md
+// Synced from docs/conversations/2026光伏展诊断智能体推荐对话.md
 const PV_EXPO_DIAG_QA = [
   {
     agent: 'diag',
@@ -2436,7 +2436,7 @@ function buildAlertLatestDecisionAnswer(zh) {
 }
 
 // PV Expo (2026) · Alarm Agent recommended dialogues (CN+EN)
-// Synced from 2026光伏展告警智能体推荐对话.md
+// Synced from docs/conversations/2026光伏展告警智能体推荐对话.md
 const PV_EXPO_ALERT_QA = [
   {
     agent: 'alert',
@@ -2652,10 +2652,222 @@ function resolveDemoIds(text, base) {
   return String(text ?? '').replace(/\{\{DATE\}\}/g, demoDateTag(base));
 }
 
+const SIMULATOR_SCENES = [
+  {
+    id: 'S1',
+    title: '东盟世界待机态',
+    enTitle: 'ASEAN Standby',
+    oneLine: '中国算力出海东盟，多电站数字团队同时在岗',
+    enOneLine: 'China AI capacity operates across ASEAN plants with digital teams on duty.',
+    mode: 'installation',
+    interaction: 'auto-loop',
+    goal: '观察多电站在线、巡航机器人和后台任务脉冲',
+    enGoal: 'Watch multi-site online status, patrol robots, and background task pulses.',
+    progress: 10,
+    durationMs: 90000,
+    agents: ['ops', 'warn', 'alert'],
+  },
+  {
+    id: 'S2',
+    title: '人才市场 + 雇佣',
+    enTitle: 'Talent Market + Hire',
+    oneLine: '你不是买软件，是雇一支数字团队',
+    enOneLine: 'You are not buying software. You are hiring a digital team.',
+    mode: 'installation',
+    interaction: 'presenter-trigger',
+    goal: '选择数字员工并让团队入驻当前电站',
+    enGoal: 'Select digital employees and deploy the team to a plant.',
+    progress: 20,
+    durationMs: 30000,
+    agents: ['ops', 'query', 'pv'],
+  },
+  {
+    id: 'S3',
+    title: '现场态',
+    enTitle: 'AI Operations Site',
+    oneLine: '这是一个 AI 运维现场，不是看板',
+    enOneLine: 'This is an AI operations site, not a static dashboard.',
+    mode: 'workbench',
+    interaction: 'inspect-agent',
+    goal: '查看数字员工在现场的分布和职责',
+    enGoal: 'Inspect where digital employees work and what each role owns.',
+    progress: 32,
+    durationMs: 25000,
+    focusPlantId: '1881233694553112576',
+    scenarioIdx: 0,
+    agents: ['alert', 'warn', 'diag', 'order', 'sched', 'safe', 'ops'],
+  },
+  {
+    id: 'S4',
+    title: '事件触发',
+    enTitle: 'Incident Trigger',
+    oneLine: 'AI 团队开始响应事件',
+    enOneLine: 'The AI team starts responding to an incident.',
+    mode: 'workbench',
+    interaction: 'presenter-trigger',
+    goal: '触发告警，观察事件波纹和响应倒计时',
+    enGoal: 'Trigger an alarm and watch the response countdown.',
+    progress: 44,
+    durationMs: 20000,
+    focusPlantId: '1881233694553112576',
+    scenarioIdx: 0,
+    agents: ['alert', 'diag'],
+  },
+  {
+    id: 'S5',
+    title: '多 Agent 协同',
+    enTitle: 'Multi-Agent Relay',
+    oneLine: 'AI 不是单点功能，是团队协同',
+    enOneLine: 'AI is not a single feature. It is a team relay.',
+    mode: 'workbench',
+    interaction: 'auto-play',
+    goal: '看告警、诊断、工单、排程、安全和运营接力闭环',
+    enGoal: 'Watch Alarm, Diagnose, Ticket, Schedule, Safety, and Ops close the loop.',
+    progress: 56,
+    durationMs: 30000,
+    focusPlantId: '1881233694553112576',
+    scenarioIdx: 0,
+    agents: ['alert', 'diag', 'order', 'sched', 'safe', 'ops'],
+  },
+  {
+    id: 'S6',
+    title: '分歧仲裁',
+    enTitle: 'Disagreement Arbitration',
+    oneLine: '有组织、有协作、有判断',
+    enOneLine: 'Organized collaboration with judgment.',
+    mode: 'workbench',
+    interaction: 'auto-play',
+    goal: '比较两个智能体建议，并收敛到仲裁结论',
+    enGoal: 'Compare agent recommendations and converge on an arbitration result.',
+    progress: 68,
+    durationMs: 25000,
+    focusPlantId: '1881233694553112576',
+    scenarioIdx: 0,
+    agents: ['diag', 'safe', 'sched'],
+  },
+  {
+    id: 'S7',
+    title: '当一天经理',
+    enTitle: 'Be the Manager',
+    oneLine: 'AI 备好上下文，你只做关键判断',
+    enOneLine: 'AI prepares the context. You make the key call.',
+    mode: 'workbench',
+    interaction: 'hands-on',
+    goal: '选择批准、复核或转人工，观察安全/效率/自治评分变化',
+    enGoal: 'Approve, review, or hand off, then watch safety/efficiency/autonomy scores change.',
+    progress: 78,
+    durationMs: 45000,
+    focusPlantId: '1881233694553112576',
+    scenarioIdx: 0,
+    agents: ['ops', 'diag', 'safe', 'order', 'sched'],
+  },
+  {
+    id: 'S8',
+    title: '闭环汇报',
+    enTitle: 'Closure Report',
+    oneLine: '一天的运维效率跃升，可量化',
+    enOneLine: 'The day closes with measurable operations uplift.',
+    mode: 'workbench',
+    interaction: 'auto-report',
+    goal: '查看本轮评级、节省工时、风险下降和经验沉淀',
+    enGoal: 'Review rating, saved hours, risk reduction, and experience captured.',
+    progress: 86,
+    durationMs: 25000,
+    focusPlantId: '1881233694553112576',
+    scenarioIdx: 0,
+    agents: ['ops', 'order', 'query'],
+  },
+  {
+    id: 'S9',
+    title: '托管电站',
+    enTitle: 'Managed Plant',
+    oneLine: '时间加速，AI 自主跑完周期',
+    enOneLine: 'Accelerate time and let AI run a full operations cycle.',
+    mode: 'ritual',
+    interaction: 'hands-on',
+    goal: '调节托管等级，观察时间加速和托管得分',
+    enGoal: 'Adjust autonomy level and watch accelerated time plus managed score.',
+    progress: 94,
+    durationMs: 50000,
+    focusPlantId: '1879736396404850688',
+    scenarioIdx: 1,
+    agents: ['ops', 'query', 'order', 'sched', 'safe', 'insp'],
+  },
+  {
+    id: 'S10',
+    title: '拉回东盟总部',
+    enTitle: 'Back to ASEAN HQ',
+    oneLine: '成果汇入公司层，经验回流',
+    enOneLine: 'Outcomes flow back to company level and experience compounds.',
+    mode: 'installation',
+    interaction: 'auto-close',
+    goal: '回到总览大屏，查看经验回流和跨站策略复制',
+    enGoal: 'Return to overview and review experience return plus cross-site reuse.',
+    progress: 100,
+    durationMs: 30000,
+    agents: ['ops', 'query', 'pv'],
+  },
+];
+
+const SIMULATOR_DECISIONS = [
+  {
+    id: 'approve',
+    title: '批准 AI 推荐方案',
+    enTitle: 'Approve AI Plan',
+    risk: '中',
+    enRisk: 'Medium',
+    impact: '预计 2 小时内恢复，风险下降 67%',
+    enImpact: 'Recovery within 2 hours, risk down 67%',
+    reason: '多 Agent 共识，证据链完整',
+    enReason: 'Multi-agent consensus with complete evidence chain',
+    nextScene: 'S8',
+    badge: '首次授权',
+    enBadge: 'First Authorization',
+    scoreDelta: { safety: 5, efficiency: 10, autonomy: 8, business: 7 },
+  },
+  {
+    id: 'review',
+    title: '要求安全智能体复核',
+    enTitle: 'Request Safety Review',
+    risk: '低',
+    enRisk: 'Low',
+    impact: '风险再降 8%，预计多耗时 18 分钟',
+    enImpact: 'Risk down another 8%, adds 18 minutes',
+    reason: '高温 + 直流侧作业，复核后更稳',
+    enReason: 'Heat and DC-side work benefit from review',
+    nextScene: 'S8',
+    badge: '安全复核通过',
+    enBadge: 'Safety Review Passed',
+    scoreDelta: { safety: 12, efficiency: -3, autonomy: 5, business: 4 },
+  },
+  {
+    id: 'manual',
+    title: '转人工处理',
+    enTitle: 'Hand Off to Human',
+    risk: '低',
+    enRisk: 'Low',
+    impact: '人工介入 +1，闭环时间增加 42 分钟',
+    enImpact: 'Human intervention +1, closure adds 42 minutes',
+    reason: '适合高不确定场景，但降低自治收益',
+    enReason: 'Good for uncertainty, but reduces autonomy gain',
+    nextScene: 'S8',
+    badge: '人工接管',
+    enBadge: 'Human Escalation',
+    scoreDelta: { safety: 8, efficiency: -8, autonomy: -10, business: -2 },
+  },
+];
+
+const SIMULATOR_BADGES = [
+  { id: 'loop', title: '零人工闭环', enTitle: 'Zero-Touch Closure' },
+  { id: 'reuse', title: '经验已回流', enTitle: 'Experience Returned' },
+  { id: 'managed', title: '托管日完成', enTitle: 'Managed Day Complete' },
+];
+
 window.IRUN = {
   AGENT_CATEGORIES, AGENTS, AGENT_BY_ID,
   TENANTS, PLANTS, AGGREGATE, aggregateOf,
   SCENARIOS, SCENARIO_A, SCENARIO_B,
+  SIMULATOR_SCENES, SIMULATOR_DECISIONS, SIMULATOR_BADGES,
   DISPATCH_HIDDEN_PLANT_IDS, isDispatchHiddenPlant,
   DEMO_PLANT_PROFILES, getDemoPlantProfile, getDemoPlantTeamUnavailableIds, isUavDemoPlant,
   getDemoBaseTime, demoDateTag, resolveDemoIds,

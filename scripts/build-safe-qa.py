@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Extract 安全智能体问答.md into PV_EXPO_SAFE_QA JS snippet."""
+"""Extract docs/conversations/安全智能体问答.md into PV_EXPO_SAFE_QA JS snippet."""
 from __future__ import annotations
 
 import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-MD = ROOT / "安全智能体问答.md"
+MD = ROOT / "docs" / "conversations" / "安全智能体问答.md"
 OUT = ROOT / "scripts" / "_safe_qa_snippet.js"
 
 
@@ -59,7 +59,7 @@ def main() -> None:
 
     lines = [
         "// PV Expo (2026) · Safety Agent recommended dialogues (CN+EN)",
-        "// Synced from 安全智能体问答.md",
+        "// Synced from docs/conversations/安全智能体问答.md",
         "const PV_EXPO_SAFE_QA = [",
     ]
     for it in items:

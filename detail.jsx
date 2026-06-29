@@ -151,7 +151,7 @@ function PlantDetail({plant, onClose, scenario, stepIdx, cur, mode, scenarioIdx,
         {showVideo && (
           <div className="video-overlay">
             <div className="v-close" onClick={closeVideo}>×</div>
-            <video ref={videoRef} controls src="video.mp4" style={{maxWidth:'92%',maxHeight:'80%'}}/>
+            <video ref={videoRef} controls src="assets/app/videos/video.mp4" style={{maxWidth:'92%',maxHeight:'80%'}}/>
           </div>
         )}
 

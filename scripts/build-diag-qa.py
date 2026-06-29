@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Extract 2026光伏展诊断智能体推荐对话.md into PV_EXPO_DIAG_QA JS snippet."""
+"""Extract docs/conversations/2026光伏展诊断智能体推荐对话.md into PV_EXPO_DIAG_QA JS snippet."""
 from __future__ import annotations
 
 import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-MD = ROOT / "2026光伏展诊断智能体推荐对话.md"
+MD = ROOT / "docs" / "conversations" / "2026光伏展诊断智能体推荐对话.md"
 OUT = ROOT / "scripts" / "_diag_qa_snippet.js"
 
 MATCH_KEYS = [
@@ -70,7 +70,7 @@ def main() -> None:
 
     lines = [
         "// PV Expo (2026) · Diagnosis Agent recommended dialogues (CN+EN)",
-        "// Synced from 2026光伏展诊断智能体推荐对话.md",
+        "// Synced from docs/conversations/2026光伏展诊断智能体推荐对话.md",
         "const PV_EXPO_DIAG_QA = [",
     ]
     for it in items:

@@ -1,7 +1,7 @@
 // iRun Workbench — App root
 const { useState: _aUseState, useEffect: _aUseEffect, useCallback: _aUseCallback } = React;
 const useState = _aUseState, useEffect = _aUseEffect, useCallback = _aUseCallback;
-const { TopBar, EventStream, EventStreamTab, DispatchPanel, DispatchTab, AgentDock, AgentTokenPanel, MiniMap, QuickFuncs, AgentModal, AgentsRail, ModeStrip, SkillModal, PlantTitle, DroneFlight, PlantRobot, PlantAgentField, DispatchedRobots, OverviewDispatchRobot, LangCtx } = window.IRUN_UI;
+const { TopBar, EventStream, EventStreamTab, DispatchPanel, DispatchTab, AgentDock, AgentTokenPanel, MiniMap, QuickFuncs, AgentModal, AgentsRail, ModeStrip, SkillModal, PlantTitle, DroneFlight, PlantRobot, PlantAgentField, DispatchedRobots, OverviewDispatchRobot, ScenarioDirectorRail, ManagerDecisionConsole, DigitalTeamOrgPanel, MissionFeedbackLayer, LangCtx } = window.IRUN_UI;
 const { PlantsMap, Map2Overlay } = window.IRUN_MAP;
 const { PlantDetail, PlantInlineDock, useScenarioStepping } = window.IRUN_DETAIL;
 const { Scene3D } = window.IRUN_SCENE3D;
@@ -9,6 +9,12 @@ const { PLANTS: APP_PLANTS, TENANTS: APP_TENANTS, AGENTS: APP_AGENTS, AGENT_BY_I
 const isDispatchHiddenPlant = window.IRUN?.isDispatchHiddenPlant || (() => false);
 const getDemoPlantProfile = (id) => window.IRUN?.getDemoPlantProfile?.(id) || null;
 const isUavDemoPlant = (id) => window.IRUN?.isUavDemoPlant?.(id) || false;
+const APP_SIMULATOR_SCENES = window.IRUN?.SIMULATOR_SCENES || [];
+const APP_SIMULATOR_DECISIONS = window.IRUN?.SIMULATOR_DECISIONS || [];
+
+function clampSimScore(n) {
+  return Math.max(0, Math.min(100, Math.round(Number(n) || 0)));
+}
 
 function App(){
   const [plants, setPlants] = useState(() => window.IRUN?.PLANTS || APP_PLANTS || []);
@@ -136,6 +142,17 @@ function App(){
   const onRobotDone = useCallback((id) => {
     setDispatchedRobots(prev => prev.filter(r => r.id !== id));
   }, []);
+  const [simulatorEnabled, setSimulatorEnabled] = useState(()=>{
+    try {
+      const saved = localStorage.getItem('irun:simulator-enabled');
+      return saved === null ? true : saved === '1';
+    } catch(e) { return true; }
+  });
+  const [simSceneId, setSimSceneId] = useState('S1');
+  const [simDecisionId, setSimDecisionId] = useState(null);
+  const [simBadges, setSimBadges] = useState([]);
+  const [simAutonomyLevel, setSimAutonomyLevel] = useState(2);
+  const [simScore, setSimScore] = useState({ safety: 82, efficiency: 76, autonomy: 68, business: 74 });
   // Clear robots + busyMap on mode switch / plant leave
   useEffect(()=>{
     if (mode === 'command') { setBusyMap({}); }
@@ -163,6 +180,89 @@ function App(){
   },[]);
 
   const focusPlant = focusId ? plants.find(p=>p.id===focusId) : null;
+  const simSceneIndex = Math.max(0, APP_SIMULATOR_SCENES.findIndex(s => s.id === simSceneId));
+  const currentSimScene = APP_SIMULATOR_SCENES[simSceneIndex] || APP_SIMULATOR_SCENES[0];
+
+  const setSimulatorScene = useCallback((id, opts={}) => {
+    const scene = APP_SIMULATOR_SCENES.find(s => s.id === id) || APP_SIMULATOR_SCENES[0];
+    if (!scene) return;
+    if (!opts.keepDecision && scene.id !== 'S8') setSimDecisionId(null);
+    setSimSceneId(scene.id);
+  }, []);
+
+  const nextSimulatorScene = useCallback(() => {
+    const next = APP_SIMULATOR_SCENES[Math.min(APP_SIMULATOR_SCENES.length - 1, simSceneIndex + 1)] || currentSimScene;
+    setSimulatorScene(next.id, { keepDecision: next.id === 'S8' });
+  }, [simSceneIndex, currentSimScene?.id, setSimulatorScene]);
+
+  const prevSimulatorScene = useCallback(() => {
+    const prev = APP_SIMULATOR_SCENES[Math.max(0, simSceneIndex - 1)] || currentSimScene;
+    setSimulatorScene(prev.id);
+  }, [simSceneIndex, currentSimScene?.id, setSimulatorScene]);
+
+  const toggleSimulator = useCallback((next) => {
+    const v = typeof next === 'boolean' ? next : !simulatorEnabled;
+    setSimulatorEnabled(v);
+    try { localStorage.setItem('irun:simulator-enabled', v ? '1' : '0'); } catch(e) {}
+  }, [simulatorEnabled]);
+
+  const handleSimulatorDecision = useCallback((decisionId) => {
+    const decision = APP_SIMULATOR_DECISIONS.find(d => d.id === decisionId);
+    if (!decision) return;
+    setSimDecisionId(decision.id);
+    setSimScore(prev => ({
+      safety: clampSimScore(prev.safety + (decision.scoreDelta?.safety || 0)),
+      efficiency: clampSimScore(prev.efficiency + (decision.scoreDelta?.efficiency || 0)),
+      autonomy: clampSimScore(prev.autonomy + (decision.scoreDelta?.autonomy || 0)),
+      business: clampSimScore(prev.business + (decision.scoreDelta?.business || 0)),
+    }));
+    setSimBadges(prev => prev.includes(decision.badge) ? prev : [...prev, decision.badge]);
+    window.setTimeout(() => setSimulatorScene(decision.nextScene || 'S8', { keepDecision: true }), 520);
+  }, [setSimulatorScene]);
+
+  const handleAutonomyLevel = useCallback((level) => {
+    const next = Math.max(1, Math.min(4, Number(level) || 1));
+    setSimAutonomyLevel(next);
+    setSimScore(prev => ({
+      ...prev,
+      autonomy: clampSimScore(58 + next * 10),
+      safety: clampSimScore(next >= 4 ? Math.min(prev.safety, 86) : prev.safety + 2),
+      business: clampSimScore(prev.business + (next - simAutonomyLevel) * 2),
+    }));
+    if (next >= 4) setSimBadges(prev => prev.includes('托管日完成') ? prev : [...prev, '托管日完成']);
+  }, [simAutonomyLevel]);
+
+  useEffect(() => {
+    if (!simulatorEnabled || !currentSimScene) return;
+    setStreamCollapsed(false);
+    setDispatchCollapsed(false);
+    const plantId = currentSimScene.focusPlantId;
+    if (plantId) {
+      const target = plants.find(p => String(p.id) === String(plantId));
+      if (target && target.tenant !== tenant.id) {
+        const idx = APP_TENANTS.findIndex(t => t.id === target.tenant);
+        if (idx >= 0) setTenantIdx(idx);
+      }
+      setFocusId(plantId);
+      setViewMode('img2');
+      setMode('auto');
+      setScenarioIdx(typeof currentSimScene.scenarioIdx === 'number' ? currentSimScene.scenarioIdx : 0);
+    } else {
+      setFocusId(null);
+      setViewMode('map2');
+      setMode('auto');
+    }
+  }, [simulatorEnabled, currentSimScene?.id, plants.length, tenant.id]);
+
+  const simulatorState = {
+    enabled: simulatorEnabled,
+    currentScene: currentSimScene,
+    sceneIndex: simSceneIndex,
+    score: simScore,
+    badges: simBadges,
+    selectedDecision: simDecisionId,
+    autonomyLevel: simAutonomyLevel,
+  };
 
   // Page load: fetch station list and override plant name/enName by id
   useEffect(()=>{
@@ -256,8 +356,8 @@ function App(){
     }
   }, [focusId]);
 
-  const hideDispatchRail = isDispatchHiddenPlant(focusPlant?.id);
-  const hideStreamRail = !!focusId && !isDispatchHiddenPlant(focusId);
+  const hideDispatchRail = !simulatorEnabled && isDispatchHiddenPlant(focusPlant?.id);
+  const hideStreamRail = !simulatorEnabled && !!focusId && !isDispatchHiddenPlant(focusId);
 
   const handleModeChange = useCallback((next) => {
     const demo = getDemoPlantProfile(focusPlant?.id);
@@ -322,28 +422,28 @@ function App(){
         const idx = focusPlant ? plants.findIndex(p=>p.id===focusPlant.id) : -1;
         const suffix = theme === 'light' ? 'qian' : '';
         const bg = idx >= 0
-          ? `plant${String(idx+1).padStart(3,'0')}${suffix}.png`
-          : 'img2.jpg';
+          ? `assets/app/plants/plant${String(idx+1).padStart(3,'0')}${suffix}.png`
+          : 'assets/app/backgrounds/img2.jpg';
         return <div className="scene-img-bg" style={{backgroundImage:`url('${bg}')`}}/>;
       })()}
       {(viewMode === 'map2' && map2SubMode === 'show') && (
-        <div className="scene-img-bg" style={{backgroundImage:`url('rjgf001.png')`}}/>
+        <div className="scene-img-bg" style={{backgroundImage:`url('assets/app/sites/rjgf001.png')`}}/>
       )}
       {(viewMode === 'map2' && map2SubMode === 'pic1') && (
-        <div className="scene-img-bg" style={{backgroundImage:`url('rjgf005.png')`}}/>
+        <div className="scene-img-bg" style={{backgroundImage:`url('assets/app/sites/rjgf005.png')`}}/>
       )}
       {(viewMode === 'map2' && map2SubMode === 'pic2') && (
-        <div className="scene-img-bg" style={{backgroundImage:`url('rjgf004.png')`}}/>
+        <div className="scene-img-bg" style={{backgroundImage:`url('assets/app/sites/rjgf004.png')`}}/>
       )}
       {(viewMode === 'map2' && map2SubMode === 'pic3') && (
-        <div className="scene-img-bg" style={{backgroundImage:`url('rjgf001qian.png')`}}/>
+        <div className="scene-img-bg" style={{backgroundImage:`url('assets/app/sites/rjgf001qian.png')`}}/>
       )}
       {/* map2 漫游 — video background */}
       {(viewMode === 'map2' && map2SubMode === 'roam') && (
-        <video className="scene-video-bg" src="manyou001.mp4" autoPlay loop playsInline/>
+        <video className="scene-video-bg" src="assets/app/videos/manyou001.mp4" autoPlay loop playsInline/>
       )}
       {(viewMode === 'map2' && map2SubMode === 'vid3') && (
-        <video className="scene-video-bg" src="rjgf001qian.mp4" autoPlay loop playsInline/>
+        <video className="scene-video-bg" src="assets/app/videos/rjgf001qian.mp4" autoPlay loop playsInline/>
       )}
 
       {/* full-screen plants map / 3D scene */}
@@ -438,24 +538,61 @@ function App(){
       {(viewMode === 'model' || viewMode === 'day' || viewMode === 'night') && <Scene3D mode={viewMode}/>}
 
       {/* top KPIs */}
-      <TopBar focusPlant={focusPlant} plants={tenantPlants} agg={tenantAgg} onPlantChange={handlePlantChange} tenant={tenant} tenantIdx={tenantIdx} onTenant={onTenantChange} onBack={()=>setFocusId(null)} lang={lang} onLang={toggleLang} theme={theme} onTheme={toggleTheme}/>
+      <TopBar focusPlant={focusPlant} plants={tenantPlants} agg={tenantAgg} onPlantChange={handlePlantChange} tenant={tenant} tenantIdx={tenantIdx} onTenant={onTenantChange} onBack={()=>setFocusId(null)} lang={lang} onLang={toggleLang} theme={theme} onTheme={toggleTheme} simulator={simulatorState}/>
+
+      {simulatorEnabled && (
+        <MissionFeedbackLayer
+          currentScene={currentSimScene}
+          score={simScore}
+          badges={simBadges}
+          selectedDecision={simDecisionId}
+          autonomyLevel={simAutonomyLevel}/>
+      )}
+      {!simulatorEnabled && (
+        <button className="sim-launch" onClick={()=>toggleSimulator(true)}>
+          {lang==='en'?'Simulator':'模拟器'}
+        </button>
+      )}
 
       {/* left + right rails over map */}
       <div className="stage">
         {!hideStreamRail && (
-          <div className={`left-rail ${streamCollapsed?'collapsed':''}`}>
-            {streamCollapsed
-              ? <EventStreamTab onExpand={()=>toggleStream(false)}/>
-              : <EventStream focusPlant={focusPlant} theme={theme} onCollapse={()=>toggleStream(true)}/>
+          <div className={`left-rail ${(!simulatorEnabled && streamCollapsed)?'collapsed':''}`}>
+            {simulatorEnabled
+              ? <ScenarioDirectorRail
+                  scenes={APP_SIMULATOR_SCENES}
+                  currentScene={currentSimScene}
+                  onSelect={setSimulatorScene}
+                  onPrev={prevSimulatorScene}
+                  onNext={nextSimulatorScene}
+                  onTriggerIncident={()=>setSimulatorScene('S4')}
+                  onManagerMode={()=>setSimulatorScene('S7')}
+                  onAutonomyMode={()=>setSimulatorScene('S9')}
+                  onToggleLegacy={()=>toggleSimulator(false)}
+                  onCollapse={()=>toggleSimulator(false)}/>
+              : (streamCollapsed
+                  ? <EventStreamTab onExpand={()=>toggleStream(false)}/>
+                  : <EventStream focusPlant={focusPlant} theme={theme} onCollapse={()=>toggleStream(true)}/>)
             }
           </div>
         )}
         <div className="center-stretch"/>
         {!hideDispatchRail && (
-          <div className={`right-rail ${dispatchCollapsed?'collapsed':''}`}>
-            {dispatchCollapsed
-              ? <DispatchTab onExpand={()=>toggleDispatch(false)}/>
-              : <DispatchPanel focusPlant={focusPlant} dispatchPlantCtx={dispatchPlantCtx} selectedAgent={selectedAgent} onSelectAgent={setSelectedAgent} onClearDispatchPlantCtx={()=>setDispatchPlantCtx(null)} onOpenAgent={setOpenAgent} onCollapse={()=>toggleDispatch(true)} mode={mode} theme={theme} onDispatchCommand={onDispatchCommand} onDispatchToPlant={onDispatchToPlant} onRecallDispatch={recallAllBots}/>
+          <div className={`right-rail ${(!simulatorEnabled && dispatchCollapsed)?'collapsed':''}`}>
+            {simulatorEnabled
+              ? <ManagerDecisionConsole
+                  currentScene={currentSimScene}
+                  score={simScore}
+                  decisions={APP_SIMULATOR_DECISIONS}
+                  selectedDecision={simDecisionId}
+                  autonomyLevel={simAutonomyLevel}
+                  onDecision={handleSimulatorDecision}
+                  onAutonomyChange={handleAutonomyLevel}
+                  onNext={nextSimulatorScene}
+                  onToggleLegacy={()=>toggleSimulator(false)}/>
+              : (dispatchCollapsed
+                  ? <DispatchTab onExpand={()=>toggleDispatch(false)}/>
+                  : <DispatchPanel focusPlant={focusPlant} dispatchPlantCtx={dispatchPlantCtx} selectedAgent={selectedAgent} onSelectAgent={setSelectedAgent} onClearDispatchPlantCtx={()=>setDispatchPlantCtx(null)} onOpenAgent={setOpenAgent} onCollapse={()=>toggleDispatch(true)} mode={mode} theme={theme} onDispatchCommand={onDispatchCommand} onDispatchToPlant={onDispatchToPlant} onRecallDispatch={recallAllBots}/>)
             }
           </div>
         )}
@@ -498,7 +635,14 @@ function App(){
 
       {/* dock — img2+focusPlant shows inline plant dashboard, else agent token panel */}
       <div className="dock">
-        {(viewMode === 'img2' && focusPlant)
+        {simulatorEnabled
+          ? <DigitalTeamOrgPanel
+              currentScene={currentSimScene}
+              score={simScore}
+              badges={simBadges}
+              selectedDecision={simDecisionId}
+              onOpen={setOpenAgent}/>
+          : (viewMode === 'img2' && focusPlant)
           ? <PlantInlineDock
               plant={focusPlant}
               scenario={scenario}

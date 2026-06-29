@@ -36,6 +36,41 @@ const {
   TENANTS: _TENANTS,
 } = window.IRUN;
 
+const _SIM_SCENES = window.IRUN?.SIMULATOR_SCENES || [];
+const _SIM_DECISIONS = window.IRUN?.SIMULATOR_DECISIONS || [];
+
+function clampScore(n) {
+  return Math.max(0, Math.min(100, Math.round(Number(n) || 0)));
+}
+
+function simSceneTitle(scene, zh) {
+  return zh ? scene?.title : (scene?.enTitle || scene?.title);
+}
+
+function simSceneLine(scene, zh) {
+  return zh ? scene?.oneLine : (scene?.enOneLine || scene?.oneLine);
+}
+
+function simSceneGoal(scene, zh) {
+  return zh ? scene?.goal : (scene?.enGoal || scene?.goal);
+}
+
+function simDecisionTitle(decision, zh) {
+  return zh ? decision?.title : (decision?.enTitle || decision?.title);
+}
+
+function simDecisionImpact(decision, zh) {
+  return zh ? decision?.impact : (decision?.enImpact || decision?.impact);
+}
+
+function simDecisionReason(decision, zh) {
+  return zh ? decision?.reason : (decision?.enReason || decision?.reason);
+}
+
+function simDecisionBadge(decision, zh) {
+  return zh ? decision?.badge : (decision?.enBadge || decision?.badge);
+}
+
 try {
   window.marked?.setOptions?.({ gfm: true, breaks: true, mangle: false, headerIds: false });
 } catch (e) {}
@@ -310,7 +345,7 @@ function ThemeIcon({mode}){
 
 // ──────────────────────────────────────────────────────────────────────
 // Top bar
-function TopBar({focusPlant, plants, agg, onPlantChange, tenant, tenantIdx, onTenant, onBack, lang, onLang, theme, onTheme}){
+function TopBar({focusPlant, plants, agg, onPlantChange, tenant, tenantIdx, onTenant, onBack, lang, onLang, theme, onTheme, simulator}){
   const clock = useClock();
   const zh = lang !== 'en';
   const [plantPickerOpen, setPlantPickerOpen] = useState(false);
@@ -387,11 +422,19 @@ function TopBar({focusPlant, plants, agg, onPlantChange, tenant, tenantIdx, onTe
     ? '0.00'
     : (k.powerRate ?? ((Number(k.pwr || 0) / (Number(k.cap || 0) || 1)) * 100).toFixed(1));
   const yoy = React.useMemo(() => (Math.random() * 10).toFixed(1), [focusPlant?.id]);
+  const simScore = simulator?.score || {};
+  const simTotal = simulator?.enabled
+    ? clampScore(((simScore.safety || 0) + (simScore.efficiency || 0) + (simScore.autonomy || 0) + (simScore.business || 0)) / 4)
+    : 0;
+  const simClosed = simulator?.enabled ? 18 + Math.max(0, simulator.sceneIndex || 0) * 3 : 0;
+  const simManual = simulator?.selectedDecision === 'manual' ? 1 : 0;
+  const simSaved = simulator?.enabled ? (4.8 + Math.max(0, simulator.sceneIndex || 0) * 0.42).toFixed(1) : '0.0';
+  const simReusable = simulator?.enabled ? Math.max(2, Math.min(11, 2 + Math.floor((simulator.sceneIndex || 0) * 1.1))) : 0;
 
   return (
     <div className="topbar">
       <div className="brand">
-        <div className="brand-mark"><img src="irun-icon.png" alt="iRun" className="brand-icon"/></div>
+        <div className="brand-mark"><img src="assets/app/brand/irun-icon.png" alt="iRun" className="brand-icon"/></div>
         <div className="brand-text">
           <b>iRUN<span style={{color:'var(--cyan)'}}>·</span>WORKBENCH</b>
         </div>
@@ -434,37 +477,73 @@ function TopBar({focusPlant, plants, agg, onPlantChange, tenant, tenantIdx, onTe
       </div>
 
       <div className="kpis">
-        <div className="kpi">
-          <div className="l">{zh?'在管电站':'Stations'}</div>
-          <div className="v mono">{k.plants}<small>{zh?`座 · ${focusPlant?'当前聚焦':'全租户'}`:`· ${focusPlant?'Current':'All'}`}</small></div>
-        </div>
-        <div className="kpi">
-          <div className="l">{zh?'装机容量':'Capacity'}</div>
-          <div className="v mono">{k.cap.toFixed(2)}<small>MWp</small></div>
-        </div>
-        <div className="kpi">
-          <div className="l">{zh?'实时功率':'Live Power'}</div>
-          <div className="v mono" style={{whiteSpace:'nowrap'}}>{displayPwr.toFixed(2)}<small>MW · {util}%</small></div>
-          <div className="kpi-bar"><i style={{width:util+'%'}}/></div>
-        </div>
-        <div className="kpi">
-          <div className="l">{zh?'今日发电':"Today's Gen"}</div>
-          <div className="v mono">{k.gen.toFixed(2)}<small>MWh</small></div>
-          <div className="delta">▲ {yoy}% · {zh?'同比':'YoY'}</div>
-        </div>
-        <div className="kpi">
-          <div className="l">{zh?'活跃告警':'Alerts'}</div>
-          <div className="v mono" style={{color: k.al>10?'var(--rose)':'#fff'}}>
-            {k.al}
-            <small>{zh?`条 · 待研判 ${Math.max(0, k.pendingAlerts ?? Math.max(0,k.al-12))}`:`· Pending ${Math.max(0, k.pendingAlerts ?? Math.max(0,k.al-12))}`}</small>
-          </div>
-          <div className="delta warn">{zh?'告警去噪率 '+k.noiseReductionRate+'%':'Noise Reduction '+k.noiseReductionRate+'%'}</div>
-        </div>
-        <div className="kpi">
-          <div className="l">{zh?'KPI 风险':'KPI Risk'}</div>
-          <div className="v mono" style={{color: k.risk?'var(--amber)':'var(--emerald)'}}>{k.risk}<small>{zh?'站需关注':' Needs Attn'}</small></div>
-          <div className="delta">{zh?'运营智能体 · 持续监测':'Ops · Monitoring'}</div>
-        </div>
+        {simulator?.enabled ? (
+          <>
+            <div className="kpi">
+              <div className="l">{zh?'在岗电站':'Managed Sites'}</div>
+              <div className="v mono">{k.plants}<small>{zh?'座 · 数字团队在线':'· Digital team online'}</small></div>
+            </div>
+            <div className="kpi">
+              <div className="l">{zh?'自动闭环':'Auto Closed'}</div>
+              <div className="v mono">{simClosed}<small>{zh?'项任务':' tasks'}</small></div>
+              <div className="delta">▲ {Math.max(12, simClosed-8)}% · {zh?'今日':'Today'}</div>
+            </div>
+            <div className="kpi">
+              <div className="l">{zh?'人工介入':'Human Input'}</div>
+              <div className="v mono" style={{color: simManual?'var(--amber)':'var(--emerald)'}}>{simManual}<small>{zh?'次':' times'}</small></div>
+              <div className="kpi-bar"><i style={{width:(100 - simManual*36)+'%'}}/></div>
+            </div>
+            <div className="kpi">
+              <div className="l">{zh?'节省工时':'Hours Saved'}</div>
+              <div className="v mono">{simSaved}<small>h</small></div>
+              <div className="delta">{zh?'AI 编排收益':'AI orchestration gain'}</div>
+            </div>
+            <div className="kpi">
+              <div className="l">{zh?'托管可信度':'Trust Score'}</div>
+              <div className="v mono">{simTotal}<small>/100</small></div>
+              <div className="delta warn">{zh?'自治等级 L':'Autonomy L'}{simulator.autonomyLevel || 2}</div>
+            </div>
+            <div className="kpi">
+              <div className="l">{zh?'经验回流':'Experience'}</div>
+              <div className="v mono">{simulator.badges?.length || 0}<small>{zh?'枚成就':' badges'}</small></div>
+              <div className="delta">{zh?'跨站策略 ':'Reusable policies '}{simReusable}</div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="kpi">
+              <div className="l">{zh?'在管电站':'Stations'}</div>
+              <div className="v mono">{k.plants}<small>{zh?`座 · ${focusPlant?'当前聚焦':'全租户'}`:`· ${focusPlant?'Current':'All'}`}</small></div>
+            </div>
+            <div className="kpi">
+              <div className="l">{zh?'装机容量':'Capacity'}</div>
+              <div className="v mono">{k.cap.toFixed(2)}<small>MWp</small></div>
+            </div>
+            <div className="kpi">
+              <div className="l">{zh?'实时功率':'Live Power'}</div>
+              <div className="v mono" style={{whiteSpace:'nowrap'}}>{displayPwr.toFixed(2)}<small>MW · {util}%</small></div>
+              <div className="kpi-bar"><i style={{width:util+'%'}}/></div>
+            </div>
+            <div className="kpi">
+              <div className="l">{zh?'今日发电':"Today's Gen"}</div>
+              <div className="v mono">{k.gen.toFixed(2)}<small>MWh</small></div>
+              <div className="delta">▲ {yoy}% · {zh?'同比':'YoY'}</div>
+            </div>
+            <div className="kpi">
+              <div className="l">{zh?'活跃告警':'Alerts'}</div>
+              <div className="v mono" style={{color: k.al>10?'var(--rose)':'#fff'}}>
+                {k.al}
+                <small>{zh?`条 · 待研判 ${Math.max(0, k.pendingAlerts ?? Math.max(0,k.al-12))}`:`· Pending ${Math.max(0, k.pendingAlerts ?? Math.max(0,k.al-12))}`}</small>
+              </div>
+              <div className="delta warn">{zh?'告警去噪率 '+k.noiseReductionRate+'%':'Noise Reduction '+k.noiseReductionRate+'%'}</div>
+            </div>
+            <div className="kpi">
+              <div className="l">{zh?'KPI 风险':'KPI Risk'}</div>
+              <div className="v mono" style={{color: k.risk?'var(--amber)':'var(--emerald)'}}>{k.risk}<small>{zh?'站需关注':' Needs Attn'}</small></div>
+              <div className="delta">{zh?'运营智能体 · 持续监测':'Ops · Monitoring'}</div>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="right">
@@ -2327,7 +2406,7 @@ function PlantTitle({plant, plants, onChange}){
 function UAVStaticIcon(){
   return (
     <>
-      <img src="wrj001.png" alt="UAV"/>
+      <img src="assets/app/brand/wrj001.png" alt="UAV"/>
       <div className="paf-badge paf-badge-drone">UAV</div>
     </>
   );
@@ -2513,7 +2592,7 @@ function PlantRobot(){
          }}>
       <div className="pr-shadow"/>
       <div className="pr-sprite">
-        <img src="IRunRobot.png" alt="robot"/>
+        <img src="assets/app/brand/IRunRobot.png" alt="robot"/>
       </div>
       <div className="pr-glow"/>
     </div>
@@ -2771,7 +2850,249 @@ function PlantAgentField({plant, busyMap, cur}){
   );
 }
 
-window.IRUN_UI = { TopBar, EventStream, EventStreamTab, DispatchPanel, DispatchTab, AgentDock, AgentTokenPanel, MiniMap, QuickFuncs, AgentModal, AgentsRail, isAgentRailDisabled, RobotAvatar, ModeStrip, SkillModal, PlantTitle, DroneFlight, PlantRobot, PlantAgentField, DispatchedRobots, OverviewDispatchRobot, useClock, fmtTime, fmtDate, fmtDateTime, LangCtx };
+function ScenarioDirectorRail({ scenes=_SIM_SCENES, currentScene, onSelect, onPrev, onNext, onTriggerIncident, onManagerMode, onAutonomyMode, onToggleLegacy, onCollapse }) {
+  const l = useLang(); const zh = l !== 'en';
+  const currentIdx = Math.max(0, scenes.findIndex(s => s.id === currentScene?.id));
+  return (
+    <div className="panel sim-director corners"><span className="c1"/>
+      <div className="panel-hd">
+        <span><span className="dot"/> <T z="场景导演轨" e="Scenario Director"/></span>
+        <span className="sim-hd-actions">
+          <button className="sim-mini-btn" onClick={onToggleLegacy}>{zh?'旧版':'Legacy'}</button>
+          <button className="panel-collapse" onClick={onCollapse} title={zh?'收起':'Collapse'}>‹</button>
+        </span>
+      </div>
+      <div className="sim-director-body">
+        <div className="sim-current">
+          <div className="sim-current-kicker">{currentScene?.id || 'S1'} · {zh ? '当前任务' : 'Current Mission'}</div>
+          <div className="sim-current-title">{simSceneTitle(currentScene, zh)}</div>
+          <div className="sim-current-line">{simSceneLine(currentScene, zh)}</div>
+          <div className="sim-goal">
+            <span>{zh?'目标':'Goal'}</span>
+            <b>{simSceneGoal(currentScene, zh)}</b>
+          </div>
+          <div className="sim-progress"><i style={{width:`${clampScore(currentScene?.progress || 0)}%`}}/></div>
+        </div>
+        <div className="sim-scene-list">
+          {scenes.map((s, idx) => (
+            <button
+              type="button"
+              key={s.id}
+              className={`sim-scene-item${s.id===currentScene?.id?' active':''}${idx<currentIdx?' done':''}`}
+              onClick={()=>onSelect?.(s.id)}
+            >
+              <span className="sim-scene-id">{s.id}</span>
+              <span className="sim-scene-copy">
+                <b>{simSceneTitle(s, zh)}</b>
+                <small>{simSceneLine(s, zh)}</small>
+              </span>
+              <span className={`sim-scene-mode mode-${s.mode}`}>{s.interaction}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="sim-controls">
+        <button onClick={onPrev}>{zh?'上一幕':'Prev'}</button>
+        <button className="primary" onClick={onNext}>{zh?'下一幕':'Next'}</button>
+        <button onClick={onTriggerIncident}>{zh?'触发告警':'Trigger'}</button>
+        <button onClick={onManagerMode}>{zh?'经理模式':'Manager'}</button>
+        <button onClick={onAutonomyMode}>{zh?'启动托管':'Autonomy'}</button>
+      </div>
+    </div>
+  );
+}
+
+function ManagerDecisionConsole({ currentScene, score, decisions=_SIM_DECISIONS, selectedDecision, autonomyLevel=2, onDecision, onAutonomyChange, onNext, onToggleLegacy }) {
+  const l = useLang(); const zh = l !== 'en';
+  const selected = decisions.find(d => d.id === selectedDecision);
+  const isDecisionScene = currentScene?.id === 'S7';
+  const isReportScene = currentScene?.id === 'S8';
+  const isAutonomyScene = currentScene?.id === 'S9';
+  const activeAgents = currentScene?.agents || ['ops', 'diag', 'safe'];
+  const evidence = [
+    { code:'ALT', zh:'3 条原始告警已聚类为 1 起组串异常', en:'3 raw alarms clustered into one string incident' },
+    { code:'DGN', zh:'诊断置信度 91%，疑似接线松动 + 局部热斑', en:'91% diagnosis confidence: loose connection + local hot spot' },
+    { code:'SAF', zh:'午后高温 35°C，建议增加绝缘复测', en:'35°C afternoon heat, insulation retest recommended' },
+    { code:'ORD', zh:'工单、排程、备件和人员已预编排', en:'Ticket, schedule, parts, and crew pre-orchestrated' },
+  ];
+  return (
+    <div className="panel manager-console corners"><span className="c1"/>
+      <div className="panel-hd">
+        <span><span className="dot"/> <T z="运维经理决策台" e="Manager Console"/></span>
+        <span className="sim-hd-actions">
+          <button className="sim-mini-btn" onClick={onToggleLegacy}>{zh?'对话':'Chat'}</button>
+        </span>
+      </div>
+      <div className="manager-body">
+        <section className="manager-task">
+          <div className="manager-kicker">{currentScene?.id || 'S1'} · {currentScene?.interaction}</div>
+          <h3>{simSceneTitle(currentScene, zh)}</h3>
+          <p>{simSceneGoal(currentScene, zh)}</p>
+          <div className="manager-agents">
+            {activeAgents.map(id => {
+              const a = _ABI[id];
+              if (!a) return null;
+              const cat = _CATS[a.cat];
+              return <span key={id} style={{'--cat-color':cat.color}}>{a.code}</span>;
+            })}
+          </div>
+        </section>
+        <section className="evidence-chain">
+          <div className="manager-section-title">{zh?'证据链':'Evidence Chain'}</div>
+          {evidence.map(item => (
+            <div key={item.code} className="evidence-item">
+              <span>{item.code}</span>
+              <b>{zh ? item.zh : item.en}</b>
+            </div>
+          ))}
+        </section>
+        {currentScene?.id === 'S6' && (
+          <section className="arbitration-box">
+            <div className="manager-section-title">{zh?'分歧仲裁':'Arbitration'}</div>
+            <div className="arb-grid">
+              <div><b>DGN</b><span>{zh?'建议立即派工，效率优先':'Dispatch now for efficiency'}</span><i style={{width:'91%'}}/></div>
+              <div><b>SAF</b><span>{zh?'建议先做安全复核':'Run safety review first'}</span><i style={{width:'86%'}}/></div>
+            </div>
+            <p>{zh?'仲裁结论：高温窗口下先复核绝缘，再执行派工。':'Decision: review insulation first in heat window, then dispatch.'}</p>
+          </section>
+        )}
+        {isDecisionScene && (
+          <section className="decision-cards">
+            <div className="manager-section-title">{zh?'请选择经理动作':'Choose Manager Action'}</div>
+            {decisions.map(d => (
+              <button key={d.id} className={`decision-card${selectedDecision===d.id?' selected':''}`} onClick={()=>onDecision?.(d.id)}>
+                <span className="decision-risk">{zh?'风险':'Risk'} {zh ? d.risk : d.enRisk}</span>
+                <b>{simDecisionTitle(d, zh)}</b>
+                <small>{simDecisionImpact(d, zh)}</small>
+                <em>{simDecisionReason(d, zh)}</em>
+              </button>
+            ))}
+          </section>
+        )}
+        {isReportScene && (
+          <section className="closure-report">
+            <div className="manager-section-title">{zh?'闭环汇报':'Closure Report'}</div>
+            <div className="report-grade">A-</div>
+            <div className="report-grid">
+              <div><span>{zh?'节省工时':'Hours Saved'}</span><b>6.4h</b></div>
+              <div><span>{zh?'风险下降':'Risk Down'}</span><b>{selectedDecision==='review'?'75%':'67%'}</b></div>
+              <div><span>{zh?'人工介入':'Human Input'}</span><b>{selectedDecision==='manual'?1:0}</b></div>
+            </div>
+            <p>{selected ? `${zh?'本轮选择':'Choice'}：${simDecisionTitle(selected, zh)} · ${simDecisionBadge(selected, zh)}` : (zh?'等待经理决策结果。':'Waiting for manager decision result.')}</p>
+          </section>
+        )}
+        {isAutonomyScene && (
+          <section className="autonomy-box">
+            <div className="manager-section-title">{zh?'托管等级':'Autonomy Level'}</div>
+            <div className="autonomy-scale"><span>L1</span><span>L2</span><span>L3</span><span>L4</span></div>
+            <input type="range" min="1" max="4" step="1" value={autonomyLevel} onChange={e=>onAutonomyChange?.(Number(e.target.value))}/>
+            <div className="autonomy-copy">
+              <b>{zh?`L${autonomyLevel} ${['观察','建议','半自动','全托管'][autonomyLevel-1]}`:`L${autonomyLevel} ${['Observe','Suggest','Semi Auto','Full Autonomy'][autonomyLevel-1]}`}</b>
+              <span>{zh?'时间加速 08:00 → 18:00，低风险任务自动闭环。':'Time accelerates 08:00 to 18:00; low-risk tasks close automatically.'}</span>
+            </div>
+          </section>
+        )}
+      </div>
+      <div className="manager-foot">
+        <div className="score-mini">
+          <span>{zh?'安全':'Safety'} <b>{clampScore(score?.safety)}</b></span>
+          <span>{zh?'效率':'Efficiency'} <b>{clampScore(score?.efficiency)}</b></span>
+          <span>{zh?'自治':'Autonomy'} <b>{clampScore(score?.autonomy)}</b></span>
+        </div>
+        {!isDecisionScene && <button className="primary" onClick={onNext}>{zh?'推进下一幕':'Advance'}</button>}
+      </div>
+    </div>
+  );
+}
+
+function DigitalTeamOrgPanel({ currentScene, score, badges=[], selectedDecision, onOpen }) {
+  const l = useLang(); const zh = l !== 'en';
+  const active = new Set(currentScene?.agents || []);
+  const selected = _SIM_DECISIONS.find(d => d.id === selectedDecision);
+  const grouped = ['management', 'process', 'expert', 'tool'].map(catId => ({
+    cat: _CATS[catId],
+    agents: _AGENTS.filter(a => a.cat === catId),
+  }));
+  return (
+    <div className="panel digital-team-panel corners"><span className="c1"/>
+      <div className="panel-hd">
+        <span><span className="dot"/> <T z="数字团队组织面板" e="Digital Team Organization"/></span>
+        <span className="team-summary">{currentScene?.id || 'S1'} · {zh?'本轮参与':'Active'} {active.size || 3}/10</span>
+      </div>
+      <div className="digital-team-body">
+        <div className="team-result">
+          <div className="team-result-title">{zh?'经理评分':'Manager Score'}</div>
+          <div className="score-ring"><b>{clampScore((score.safety + score.efficiency + score.autonomy + score.business) / 4)}</b><span>{zh?'综合':'TOTAL'}</span></div>
+          <div className="score-bars">
+            {[
+              ['safety', zh?'安全':'Safety'],
+              ['efficiency', zh?'效率':'Efficiency'],
+              ['autonomy', zh?'自治':'Autonomy'],
+              ['business', zh?'收益':'Business'],
+            ].map(([key, label]) => (
+              <div key={key} className="score-row">
+                <span>{label}</span><i><b style={{width:`${clampScore(score[key])}%`}}/></i><em>{clampScore(score[key])}</em>
+              </div>
+            ))}
+          </div>
+          <div className="badge-row">
+            {(badges.length ? badges.slice(-3) : [zh?'等待首个成就':'Awaiting badge']).map(b => <span key={b}>{b}</span>)}
+          </div>
+        </div>
+        <div className="team-groups">
+          {grouped.map(group => (
+            <div key={group.cat.label} className="team-group" style={{'--cat-color':group.cat.color}}>
+              <div className="team-group-hd">{catLabel(group.cat, zh)}</div>
+              <div className="team-agent-list">
+                {group.agents.map(a => {
+                  const isActive = active.has(a.id);
+                  const workload = isActive ? 70 + ((a.id.length * 7) % 20) : 32 + ((a.id.length * 5) % 24);
+                  return (
+                    <button key={a.id} className={`team-agent${isActive?' active':''}`} onClick={()=>onOpen?.(a.id)}>
+                      <RobotAvatar agent={a} size={30} glow={isActive}/>
+                      <span><b>{agentShort(a, zh)}</b><small>{isActive ? (zh?'参与闭环':'In loop') : (zh?'待命':'Standby')}</small></span>
+                      <i style={{width:`${workload}%`}}/>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="team-loop-card">
+          <div className="team-result-title">{zh?'本轮反馈':'Round Feedback'}</div>
+          <b>{selected ? simDecisionBadge(selected, zh) : (zh?'等待经理动作':'Awaiting manager action')}</b>
+          <p>{selected ? simDecisionImpact(selected, zh) : (zh?'完成 S7 决策后，这里会生成评分、MVP 与复盘提示。':'After the S7 decision, scoring, MVP, and replay hints appear here.')}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MissionFeedbackLayer({ currentScene, score, badges=[], selectedDecision, autonomyLevel=2 }) {
+  const l = useLang(); const zh = l !== 'en';
+  const selected = _SIM_DECISIONS.find(d => d.id === selectedDecision);
+  const total = clampScore((score.safety + score.efficiency + score.autonomy + score.business) / 4);
+  return (
+    <div className="mission-feedback">
+      <div className="mission-copy">
+        <span>{currentScene?.id || 'S1'} · {zh?'任务目标':'Mission Goal'}</span>
+        <b>{simSceneGoal(currentScene, zh)}</b>
+      </div>
+      <div className="mission-track"><i style={{width:`${clampScore(currentScene?.progress || 0)}%`}}/></div>
+      <div className="mission-scores">
+        <span>{zh?'综合':'TOTAL'} <b>{total}</b></span>
+        <span>{zh?'托管':'AUTO'} <b>L{autonomyLevel}</b></span>
+        <span>{zh?'成就':'BADGE'} <b>{badges.length}</b></span>
+      </div>
+      {(selected || badges.length > 0) && (
+        <div className="mission-toast">{selected ? simDecisionBadge(selected, zh) : badges[badges.length-1]}</div>
+      )}
+    </div>
+  );
+}
+
+window.IRUN_UI = { TopBar, EventStream, EventStreamTab, DispatchPanel, DispatchTab, AgentDock, AgentTokenPanel, MiniMap, QuickFuncs, AgentModal, AgentsRail, isAgentRailDisabled, RobotAvatar, ModeStrip, SkillModal, PlantTitle, DroneFlight, PlantRobot, PlantAgentField, DispatchedRobots, OverviewDispatchRobot, ScenarioDirectorRail, ManagerDecisionConsole, DigitalTeamOrgPanel, MissionFeedbackLayer, useClock, fmtTime, fmtDate, fmtDateTime, LangCtx };
 
 // ──────────────────────────────────────────────────────────────────────
 // Collapsed event-stream tab — vertical handle on the left
@@ -3020,7 +3341,7 @@ function AgentsRail({focusPlant, busyMap, selected, onSelect, onOpen, onSkillOpe
            onClick={()=> onDroneFly?.()}
            title={droneActive ? (zh?'关闭无人机飞行':'Stop UAV') : (zh?'无人机起飞':'Launch UAV')}>
         <div className="drone-btn-icon">
-          <img src="wrj001.png" alt="UAV"/>
+          <img src="assets/app/brand/wrj001.png" alt="UAV"/>
         </div>
         <div className="drone-btn-lbl">UAV</div>
         <div className="drone-btn-sub">{zh?'无人机':'Drone'}</div>
