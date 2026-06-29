@@ -4,6 +4,10 @@
 
 **当前版本：v0.5.2** · 源需求：`design_pkg/workbench-demo-20260525/project/uploads/iRun Workbench Demo-1f363335.md`
 
+## 规划文档
+
+- [iRun AI 运维经理模拟器改造方案](docs/irun-ai-operations-manager-simulator-plan.md)
+
 ## 运行
 
 纯静态站点，零构建：
