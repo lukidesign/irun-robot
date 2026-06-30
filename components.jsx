@@ -345,7 +345,7 @@ function ThemeIcon({mode}){
 
 // ──────────────────────────────────────────────────────────────────────
 // Top bar
-function TopBar({focusPlant, plants, agg, onPlantChange, tenant, tenantIdx, onTenant, onBack, lang, onLang, theme, onTheme, simulator}){
+function TopBar({focusPlant, plants, agg, onPlantChange, tenant, tenantIdx, onTenant, onBack, lang, onLang, theme, onTheme, simulator, agentsRailVisible, onAgentsRailToggle}){
   const clock = useClock();
   const zh = lang !== 'en';
   const [plantPickerOpen, setPlantPickerOpen] = useState(false);
@@ -476,78 +476,10 @@ function TopBar({focusPlant, plants, agg, onPlantChange, tenant, tenantIdx, onTe
         </>}
       </div>
 
-      <div className="kpis">
-        {simulator?.enabled ? (
-          <>
-            <div className="kpi">
-              <div className="l">{zh?'在岗电站':'Managed Sites'}</div>
-              <div className="v mono">{k.plants}<small>{zh?'座 · 数字团队在线':'· Digital team online'}</small></div>
-            </div>
-            <div className="kpi">
-              <div className="l">{zh?'自动闭环':'Auto Closed'}</div>
-              <div className="v mono">{simClosed}<small>{zh?'项任务':' tasks'}</small></div>
-              <div className="delta">▲ {Math.max(12, simClosed-8)}% · {zh?'今日':'Today'}</div>
-            </div>
-            <div className="kpi">
-              <div className="l">{zh?'人工介入':'Human Input'}</div>
-              <div className="v mono" style={{color: simManual?'var(--amber)':'var(--emerald)'}}>{simManual}<small>{zh?'次':' times'}</small></div>
-              <div className="kpi-bar"><i style={{width:(100 - simManual*36)+'%'}}/></div>
-            </div>
-            <div className="kpi">
-              <div className="l">{zh?'节省工时':'Hours Saved'}</div>
-              <div className="v mono">{simSaved}<small>h</small></div>
-              <div className="delta">{zh?'AI 编排收益':'AI orchestration gain'}</div>
-            </div>
-            <div className="kpi">
-              <div className="l">{zh?'托管可信度':'Trust Score'}</div>
-              <div className="v mono">{simTotal}<small>/100</small></div>
-              <div className="delta warn">{zh?'自治等级 L':'Autonomy L'}{simulator.autonomyLevel || 2}</div>
-            </div>
-            <div className="kpi">
-              <div className="l">{zh?'经验回流':'Experience'}</div>
-              <div className="v mono">{simulator.badges?.length || 0}<small>{zh?'枚成就':' badges'}</small></div>
-              <div className="delta">{zh?'跨站策略 ':'Reusable policies '}{simReusable}</div>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="kpi">
-              <div className="l">{zh?'在管电站':'Stations'}</div>
-              <div className="v mono">{k.plants}<small>{zh?`座 · ${focusPlant?'当前聚焦':'全租户'}`:`· ${focusPlant?'Current':'All'}`}</small></div>
-            </div>
-            <div className="kpi">
-              <div className="l">{zh?'装机容量':'Capacity'}</div>
-              <div className="v mono">{k.cap.toFixed(2)}<small>MWp</small></div>
-            </div>
-            <div className="kpi">
-              <div className="l">{zh?'实时功率':'Live Power'}</div>
-              <div className="v mono" style={{whiteSpace:'nowrap'}}>{displayPwr.toFixed(2)}<small>MW · {util}%</small></div>
-              <div className="kpi-bar"><i style={{width:util+'%'}}/></div>
-            </div>
-            <div className="kpi">
-              <div className="l">{zh?'今日发电':"Today's Gen"}</div>
-              <div className="v mono">{k.gen.toFixed(2)}<small>MWh</small></div>
-              <div className="delta">▲ {yoy}% · {zh?'同比':'YoY'}</div>
-            </div>
-            <div className="kpi">
-              <div className="l">{zh?'活跃告警':'Alerts'}</div>
-              <div className="v mono" style={{color: k.al>10?'var(--rose)':'#fff'}}>
-                {k.al}
-                <small>{zh?`条 · 待研判 ${Math.max(0, k.pendingAlerts ?? Math.max(0,k.al-12))}`:`· Pending ${Math.max(0, k.pendingAlerts ?? Math.max(0,k.al-12))}`}</small>
-              </div>
-              <div className="delta warn">{zh?'告警去噪率 '+k.noiseReductionRate+'%':'Noise Reduction '+k.noiseReductionRate+'%'}</div>
-            </div>
-            <div className="kpi">
-              <div className="l">{zh?'KPI 风险':'KPI Risk'}</div>
-              <div className="v mono" style={{color: k.risk?'var(--amber)':'var(--emerald)'}}>{k.risk}<small>{zh?'站需关注':' Needs Attn'}</small></div>
-              <div className="delta">{zh?'运营智能体 · 持续监测':'Ops · Monitoring'}</div>
-            </div>
-          </>
-        )}
-      </div>
+      <div className="topbar-spacer"/>
 
       <div className="right">
-        <div className="r-row r-row-top">
+        <div className="r-row">
           <div className="live-wrap">
             <div className="live-time">
               <span className="dt">{fmtDate(clock)}</span>
@@ -559,8 +491,6 @@ function TopBar({focusPlant, plants, agg, onPlantChange, tenant, tenantIdx, onTe
             <span className="lt-sep">/</span>
             <span className={!zh?'lt-active':''}>EN</span>
           </button>
-        </div>
-        <div className="r-row r-row-bot">
           {(() => {
             const w = pickWx(focusPlant?.id || tenant?.id);
             return (
@@ -575,6 +505,19 @@ function TopBar({focusPlant, plants, agg, onPlantChange, tenant, tenantIdx, onTe
           <button className="theme-toggle" onClick={onTheme}
                   title={theme==='light' ? (zh?'切换到暗色':'Switch to Dark') : (zh?'切换到亮色':'Switch to Light')}>
             <ThemeIcon mode={theme}/>
+          </button>
+          <button
+            type="button"
+            className={`agents-rail-toggle${agentsRailVisible ? ' active' : ''}`}
+            aria-pressed={!!agentsRailVisible}
+            aria-label={zh ? (agentsRailVisible ? '隐藏 AI 员工' : '显示 AI 员工') : (agentsRailVisible ? 'Hide AI agents' : 'Show AI agents')}
+            title={zh ? (agentsRailVisible ? '隐藏 AI 员工' : '显示 AI 员工') : (agentsRailVisible ? 'Hide AI agents' : 'Show AI agents')}
+            onClick={onAgentsRailToggle}
+          >
+            <span className="agt-ico-head"/>
+            <span className="agt-ico-body"/>
+            <span className="agt-ico-dot agt-ico-dot-a"/>
+            <span className="agt-ico-dot agt-ico-dot-b"/>
           </button>
         </div>
       </div>
@@ -1956,7 +1899,7 @@ function _globalMaxTokenTotal(hourIdx) {
   );
 }
 
-/** 与 AgentTokenPanel 卡片小曲线一致的折线/面积路径 */
+/** 智能体详情弹窗使用的折线/面积路径 */
 function _tokenSparkPaths(spark, width, height, agentScale) {
   const scale = Math.max(0.18, agentScale ?? 1);
   const data = spark?.length ? spark : [0.03];
@@ -2136,85 +2079,6 @@ function ModeStrip({mode, onChange}){
           <span className="lb">{m.lb}</span>
         </div>
       ))}
-    </div>
-  );
-}
-
-// ──────────────────────────────────────────────────────────────────────
-// Agent Token Analytics Panel (replaces AgentDock in map2 mode)
-// 暗黑模式下仅这些智能体保持「运行」亮起，其余置灰
-const DARK_ACTIVE_AGENT_IDS = ['warn', 'safe', 'ops'];
-function AgentTokenPanel({ busyMap, theme, onOpen }) {
-  const l = useLang(); const zh = l !== 'en';
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 30000);
-    return () => clearInterval(id);
-  }, []);
-  const hourIdx = now.getHours();
-  const minuteFrac = now.getMinutes() / 60;
-  const getSnap = window.IRUN_AGENT_TOKEN?.getSnapshot;
-
-  const tokenSparks = React.useMemo(
-    () => _AGENTS.map(a => _tokenHourlySparkToNow(a.id, hourIdx, minuteFrac)),
-    [hourIdx, minuteFrac]
-  );
-
-  const agentSnaps = React.useMemo(
-    () => _AGENTS.map(a => (getSnap ? getSnap(a.id, hourIdx) : null)),
-    [hourIdx, getSnap]
-  );
-  const GLOBAL_MAX_TOK = React.useMemo(() => _globalMaxTokenTotal(hourIdx), [hourIdx]);
-
-  // duplicate the agent list for seamless infinite scroll
-  const list = [..._AGENTS, ..._AGENTS];
-
-  return (
-    <div className="panel agent-token-panel corners"><span className="c1"/>
-      <div className="panel-hd">
-        <span><span className="dot"/> <T z="智能体算力 · AGENT ANALYTICS" e="Agent Analytics · TOKEN USAGE"/></span>
-        <span style={{color:'var(--text-mute)',fontSize:10,letterSpacing:'0.1em'}}>24H TOKEN CURVE</span>
-      </div>
-      <div className="token-grid">
-        <div className="token-track">
-          {list.map((a, dupIdx) => {
-            const i = dupIdx % _AGENTS.length;
-            const snap = agentSnaps[i];
-            const cat = _CATS[a.cat];
-            const busy = busyMap?.[a.id];
-            const active = theme === 'dark' ? DARK_ACTIVE_AGENT_IDS.includes(a.id) : true;
-            const spark = tokenSparks[i] || [0.03];
-            const peakH = snap?.peakHour;
-            const color = busy ? '#22d3ee' : cat.color;
-            const tokVal = snap?.tokenTotal ?? 0;
-            const agentScale = tokVal / GLOBAL_MAX_TOK;
-            const { polyPts, areaPts } = _tokenSparkPaths(spark, SPARK_W, SPARK_H, agentScale);
-            return (
-              <div key={`${a.id}-${dupIdx}`}
-                   className={`token-card${busy ? ' busy' : ''}`}
-                   style={{'--cat-color': color}}
-                   onClick={() => onOpen(a.id)}>
-                <div className="tc-top">
-                  <RobotAvatar agent={a} size={32} glow={busy}/>
-                  <div className="tc-info">
-                    <span className="tc-name">{agentShort(a, zh)}</span>
-                    <span className={`tc-st ${active ? 'work' : 'idle'}`}>{zh?'● 运行':'● Active'}</span>
-                  </div>
-                  <span className="tc-tok">{snap?.tokensText ?? a.metrics.tokens}</span>
-                </div>
-                <svg className="tc-spark" viewBox={`0 0 ${SPARK_W} ${SPARK_H}`} preserveAspectRatio="none">
-                  <polygon points={areaPts} fill={color} fillOpacity="0.13"/>
-                  <polyline points={polyPts} fill="none" stroke={color} strokeWidth="0.75" strokeLinejoin="round" strokeLinecap="round"/>
-                </svg>
-                <div className="tc-foot">
-                  <span>{snap?.calls ?? a.metrics.todayCalls} calls</span>
-                  <span>{zh?'峰':'Peak'} {peakH != null ? peakH : '--'}:00 · {snap?.successRateText ?? a.metrics.success}%</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
     </div>
   );
 }
@@ -3253,7 +3117,7 @@ function OperationsBigScreenLayer({ currentScene, score, badges=[], selectedDeci
   );
 }
 
-window.IRUN_UI = { TopBar, EventStream, EventStreamTab, DispatchPanel, DispatchTab, AgentDock, AgentTokenPanel, MiniMap, QuickFuncs, AgentModal, AgentsRail, isAgentRailDisabled, RobotAvatar, ModeStrip, SkillModal, PlantTitle, DroneFlight, PlantRobot, PlantAgentField, DispatchedRobots, OverviewDispatchRobot, ScenarioDirectorRail, ManagerDecisionConsole, DigitalTeamOrgPanel, MissionFeedbackLayer, OperationsBigScreenLayer, useClock, fmtTime, fmtDate, fmtDateTime, LangCtx };
+window.IRUN_UI = { TopBar, EventStream, EventStreamTab, DispatchPanel, DispatchTab, AgentDock, MiniMap, QuickFuncs, AgentModal, AgentsRail, isAgentRailDisabled, RobotAvatar, ModeStrip, SkillModal, PlantTitle, DroneFlight, PlantRobot, PlantAgentField, DispatchedRobots, OverviewDispatchRobot, ScenarioDirectorRail, ManagerDecisionConsole, DigitalTeamOrgPanel, MissionFeedbackLayer, OperationsBigScreenLayer, useClock, fmtTime, fmtDate, fmtDateTime, LangCtx };
 
 // ──────────────────────────────────────────────────────────────────────
 // Collapsed event-stream tab — vertical handle on the left

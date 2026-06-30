@@ -1,7 +1,7 @@
 // iRun Workbench — App root
 const { useState: _aUseState, useEffect: _aUseEffect, useCallback: _aUseCallback } = React;
 const useState = _aUseState, useEffect = _aUseEffect, useCallback = _aUseCallback;
-const { TopBar, EventStream, EventStreamTab, DispatchPanel, DispatchTab, AgentDock, AgentTokenPanel, MiniMap, QuickFuncs, AgentModal, AgentsRail, ModeStrip, SkillModal, PlantTitle, DroneFlight, PlantRobot, PlantAgentField, DispatchedRobots, OverviewDispatchRobot, ScenarioDirectorRail, ManagerDecisionConsole, DigitalTeamOrgPanel, MissionFeedbackLayer, OperationsBigScreenLayer, LangCtx } = window.IRUN_UI;
+const { TopBar, EventStream, EventStreamTab, DispatchPanel, DispatchTab, AgentDock, MiniMap, QuickFuncs, AgentModal, AgentsRail, ModeStrip, SkillModal, PlantTitle, DroneFlight, PlantRobot, PlantAgentField, DispatchedRobots, OverviewDispatchRobot, ScenarioDirectorRail, ManagerDecisionConsole, DigitalTeamOrgPanel, MissionFeedbackLayer, OperationsBigScreenLayer, LangCtx } = window.IRUN_UI;
 const { PlantsMap, Map2Overlay } = window.IRUN_MAP;
 const { PlantDetail, PlantInlineDock, useScenarioStepping } = window.IRUN_DETAIL;
 const { Scene3D } = window.IRUN_SCENE3D;
@@ -23,9 +23,8 @@ function App(){
   const [openAgent, setOpenAgent] = useState(null);
   const [openSkillMarket, setOpenSkillMarket] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState(null);
-  const [dispatchCollapsed, setDispatchCollapsed] = useState(()=>{
-    try { return localStorage.getItem('irun:dispatch-collapsed') === '1'; } catch(e){ return false; }
-  });
+  const [agentsRailVisible, setAgentsRailVisible] = useState(false);
+  const [dispatchCollapsed, setDispatchCollapsed] = useState(true);
   const toggleDispatch = (next) => {
     const v = typeof next === 'boolean' ? next : !dispatchCollapsed;
     setDispatchCollapsed(v);
@@ -161,22 +160,31 @@ function App(){
 
   // Fit-to-viewport scaling
   useEffect(()=>{
+    const DESIGN_W = 1920;
+    const DESIGN_H = 1080;
     const apply = () => {
-      const sx = window.innerWidth / 1920;
-      const sy = window.innerHeight / 1080;
+      const viewport = window.visualViewport || window;
+      const vw = viewport.width || window.innerWidth;
+      const vh = viewport.height || window.innerHeight;
+      const sx = vw / DESIGN_W;
+      const sy = vh / DESIGN_H;
       const s = Math.min(sx, sy);
-      const tx = (window.innerWidth - 1920*s) / 2;
-      const ty = (window.innerHeight - 1080*s) / 2;
+      const tx = Math.max(0, (vw - DESIGN_W * s) / 2);
+      const ty = Math.max(0, (vh - DESIGN_H * s) / 2);
       const wb = document.querySelector('.workbench');
       if (wb){
-        wb.style.setProperty('--wb-scale', s);
-        wb.style.setProperty('--wb-tx', tx/s + 'px');
-        wb.style.setProperty('--wb-ty', ty/s + 'px');
+        wb.style.setProperty('--wb-scale', String(s));
+        wb.style.setProperty('--wb-x', tx + 'px');
+        wb.style.setProperty('--wb-y', ty + 'px');
       }
     };
     apply();
     window.addEventListener('resize', apply);
-    return ()=>window.removeEventListener('resize', apply);
+    window.visualViewport?.addEventListener('resize', apply);
+    return ()=>{
+      window.removeEventListener('resize', apply);
+      window.visualViewport?.removeEventListener('resize', apply);
+    };
   },[]);
 
   const focusPlant = focusId ? plants.find(p=>p.id===focusId) : null;
@@ -357,7 +365,7 @@ function App(){
   }, [focusId]);
 
   const hideDispatchRail = !simulatorEnabled && isDispatchHiddenPlant(focusPlant?.id);
-  const hideStreamRail = !simulatorEnabled && !!focusId && !isDispatchHiddenPlant(focusId);
+  const hideStreamRail = !simulatorEnabled;
 
   const handleModeChange = useCallback((next) => {
     const demo = getDemoPlantProfile(focusPlant?.id);
@@ -404,12 +412,11 @@ function App(){
     return ()=>window.removeEventListener('keydown', onKey);
   },[openAgent, focusId]);
 
-  const totalTokens = APP_AGENTS.reduce((s,a)=>s + parseFloat(a.metrics.tokens)*1000, 0);
-  const busyCount = Object.values(busyMap).filter(Boolean).length || 3;
+  const showBottomDock = simulatorEnabled || (viewMode === 'img2' && focusPlant);
 
   return (
     <LangCtx.Provider value={lang}>
-    <div className={`workbench theme-${theme}${(viewMode==='img2' && focusPlant) ? ' img2-focused' : ''}`}>
+    <div className={`workbench theme-${theme}${agentsRailVisible ? ' agents-visible' : ''}${showBottomDock ? '' : ' no-bottom-dock'}${(viewMode==='img2' && focusPlant) ? ' img2-focused' : ''}`}>
       {/* background scene */}
       <div className="scene">
         <div className="grid-bg"/>
@@ -452,6 +459,11 @@ function App(){
         <Map2Overlay
           plants={plants}
           focusId={focusId}
+          onRobotClick={()=>{
+            setFocusId(null);
+            setDispatchPlantCtx(null);
+            if (dispatchCollapsed) toggleDispatch(false);
+          }}
           onFocus={(id, plant)=>{
             const p = plant || plants.find(x => x.id === id);
             applyDispatchPlantCtx(id, p);
@@ -538,7 +550,7 @@ function App(){
       {(viewMode === 'model' || viewMode === 'day' || viewMode === 'night') && <Scene3D mode={viewMode}/>}
 
       {/* top KPIs */}
-      <TopBar focusPlant={focusPlant} plants={tenantPlants} agg={tenantAgg} onPlantChange={handlePlantChange} tenant={tenant} tenantIdx={tenantIdx} onTenant={onTenantChange} onBack={()=>setFocusId(null)} lang={lang} onLang={toggleLang} theme={theme} onTheme={toggleTheme} simulator={simulatorState}/>
+      <TopBar focusPlant={focusPlant} plants={tenantPlants} agg={tenantAgg} onPlantChange={handlePlantChange} tenant={tenant} tenantIdx={tenantIdx} onTenant={onTenantChange} onBack={()=>setFocusId(null)} lang={lang} onLang={toggleLang} theme={theme} onTheme={toggleTheme} simulator={simulatorState} agentsRailVisible={agentsRailVisible} onAgentsRailToggle={()=>setAgentsRailVisible(v=>!v)}/>
 
       {simulatorEnabled && (
         <MissionFeedbackLayer
@@ -564,6 +576,13 @@ function App(){
         <button className="sim-launch" onClick={()=>toggleSimulator(true)}>
           {lang==='en'?'Simulator':'模拟器'}
         </button>
+      )}
+      {!simulatorEnabled && viewMode === 'map2' && (
+        <div className="act-switcher" aria-label="Act navigation">
+          <button type="button">Act One</button>
+          <button type="button">Act Two</button>
+          <button type="button">Act Three</button>
+        </div>
       )}
 
       {/* left + right rails over map */}
@@ -611,17 +630,19 @@ function App(){
       </div>
 
       {/* far-right vertical agents rail */}
-      <AgentsRail
-        focusPlant={focusPlant}
-        busyMap={busyMap}
-        selected={selectedAgent}
-        theme={theme}
-        onSelect={(id)=>{ setSelectedAgent(id); if (id && dispatchCollapsed && !hideDispatchRail) toggleDispatch(false); }}
-        onOpen={setOpenAgent}
-        onSkillOpen={()=>setOpenSkillMarket(true)}
-        onDroneFly={()=>setDroneFlying(v=>!v)}
-        droneActive={droneFlying}
-        tooltipEnabled={dispatchCollapsed}/>
+      {agentsRailVisible && (
+        <AgentsRail
+          focusPlant={focusPlant}
+          busyMap={busyMap}
+          selected={selectedAgent}
+          theme={theme}
+          onSelect={(id)=>{ setSelectedAgent(id); if (id && dispatchCollapsed && !hideDispatchRail) toggleDispatch(false); }}
+          onOpen={setOpenAgent}
+          onSkillOpen={()=>setOpenSkillMarket(true)}
+          onDroneFly={()=>setDroneFlying(v=>!v)}
+          droneActive={droneFlying}
+          tooltipEnabled={dispatchCollapsed}/>
+      )}
 
       {/* drone fly overlay */}
       {droneFlying && (
@@ -645,28 +666,27 @@ function App(){
       )}
 
 
-      {/* dock — img2+focusPlant shows inline plant dashboard, else agent token panel */}
-      <div className="dock">
-        {simulatorEnabled
-          ? <DigitalTeamOrgPanel
-              currentScene={currentSimScene}
-              score={simScore}
-              badges={simBadges}
-              selectedDecision={simDecisionId}
-              onOpen={setOpenAgent}/>
-          : (viewMode === 'img2' && focusPlant)
-          ? <PlantInlineDock
-              plant={focusPlant}
-              scenario={scenario}
-              stepIdx={stepIdx}
-              cur={cur}
-              busyMap={busyMap}
-              mode={mode}
-              scenarioIdx={scenarioIdx}
-              onModeChange={handleModeChange}
-              onScenarioChange={handleScenarioChange}/>
-          : <AgentTokenPanel busyMap={busyMap} theme={theme} onOpen={setOpenAgent}/>}
-      </div>
+      {showBottomDock && (
+        <div className="dock">
+          {simulatorEnabled
+            ? <DigitalTeamOrgPanel
+                currentScene={currentSimScene}
+                score={simScore}
+                badges={simBadges}
+                selectedDecision={simDecisionId}
+                onOpen={setOpenAgent}/>
+            : <PlantInlineDock
+                plant={focusPlant}
+                scenario={scenario}
+                stepIdx={stepIdx}
+                cur={cur}
+                busyMap={busyMap}
+                mode={mode}
+                scenarioIdx={scenarioIdx}
+                onModeChange={handleModeChange}
+                onScenarioChange={handleScenarioChange}/>}
+        </div>
+      )}
 
       {/* plant detail overlay — 非 img2/map2 视图；底部卡片点击不再弹出 */}
       {focusPlant && (viewMode !== 'img2') && (viewMode !== 'map2') && (

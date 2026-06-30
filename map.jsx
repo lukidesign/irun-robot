@@ -93,23 +93,28 @@ function PlantsMap({focusId, onFocus, plants}){
 // Map2Overlay — floating plant pins for map2 (city background) mode
 // Each plant carries its own mapX / mapY (% of canvas) in data.js,
 // so we just filter by current tenant and render in place.
-function Map2Overlay({ focusId, onFocus, subMode, tenantId, plants }) {
+function Map2Overlay({ focusId, onFocus, onRobotClick, subMode, tenantId, plants }) {
   const zh = React.useContext(window.IRUN_UI?.LangCtx || React.createContext('zh')) !== 'en';
   const list = plants || window.IRUN?.PLANTS || [];
   const visible = list.filter(p => (!tenantId || p.tenant === tenantId) && p.mapX && p.mapY);
+  const handleRobotKey = (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    onRobotClick?.();
+  };
   return (
     <div className="map2-overlay">
       {(subMode === 'show' || subMode === 'pic1' || subMode === 'pic2') && (
         <>
-          <div className="patrol-robot patrol-robot-1" aria-hidden="true">
+          <div className="patrol-robot patrol-robot-1" role="button" tabIndex="0" aria-label={zh?'展开对话调度':'Open AI Dispatch'} onClick={onRobotClick} onKeyDown={handleRobotKey}>
             <div className="patrol-robot-sprite"/>
             <div className="patrol-robot-shadow"/>
           </div>
-          <div className="patrol-robot patrol-robot-2" aria-hidden="true">
+          <div className="patrol-robot patrol-robot-2" role="button" tabIndex="0" aria-label={zh?'展开对话调度':'Open AI Dispatch'} onClick={onRobotClick} onKeyDown={handleRobotKey}>
             <div className="patrol-robot-sprite"/>
             <div className="patrol-robot-shadow"/>
           </div>
-          <div className="patrol-robot patrol-robot-3" aria-hidden="true">
+          <div className="patrol-robot patrol-robot-3" role="button" tabIndex="0" aria-label={zh?'展开对话调度':'Open AI Dispatch'} onClick={onRobotClick} onKeyDown={handleRobotKey}>
             <div className="patrol-robot-sprite"/>
             <div className="patrol-robot-shadow"/>
           </div>
