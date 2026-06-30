@@ -3092,7 +3092,168 @@ function MissionFeedbackLayer({ currentScene, score, badges=[], selectedDecision
   );
 }
 
-window.IRUN_UI = { TopBar, EventStream, EventStreamTab, DispatchPanel, DispatchTab, AgentDock, AgentTokenPanel, MiniMap, QuickFuncs, AgentModal, AgentsRail, isAgentRailDisabled, RobotAvatar, ModeStrip, SkillModal, PlantTitle, DroneFlight, PlantRobot, PlantAgentField, DispatchedRobots, OverviewDispatchRobot, ScenarioDirectorRail, ManagerDecisionConsole, DigitalTeamOrgPanel, MissionFeedbackLayer, useClock, fmtTime, fmtDate, fmtDateTime, LangCtx };
+function OperationsBigScreenLayer({ currentScene, score, badges=[], selectedDecision, autonomyLevel=2, onSelectScene, onDecision, onAutonomyChange, onOpenAgent }) {
+  const sceneId = currentScene?.id || 'S1';
+  const isWorld = sceneId === 'S1' || sceneId === 'S2' || sceneId === 'S10';
+  const isManager = sceneId === 'S7';
+  const isManaged = sceneId === 'S9';
+  const isReport = sceneId === 'S8' || sceneId === 'S10';
+  const activeAgents = currentScene?.agents?.length ? currentScene.agents : ['ops', 'alert', 'diag', 'order'];
+  const selected = _SIM_DECISIONS.find(d => d.id === selectedDecision);
+  const total = clampScore((score.safety + score.efficiency + score.autonomy + score.business) / 4);
+  const plants = [
+    { id:'IDN-A', name:'Indonesia A', mw:80, x:17, y:60, tone:'#34d399', tokens:'18.2K', task:'Managed' },
+    { id:'MYS-B', name:'Malaysia B', mw:132, x:39, y:69, tone:'#22d3ee', tokens:'24.8K', task:'Inspecting' },
+    { id:'THA-E', name:'Thailand E', mw:95, x:54, y:45, tone:'#fbbf24', tokens:'16.7K', task:'Scheduling' },
+    { id:'VNM-C', name:'Vietnam C', mw:150, x:66, y:35, tone:'#a78bfa', tokens:'31.6K', task:'Diagnosing' },
+    { id:'PHL-D', name:'Philippines D', mw:60, x:79, y:54, tone:'#f87171', tokens:'11.1K', task:'Alarm' },
+  ];
+  const teamPacks = [
+    { id:'basic', title:'Basic O&M Squad', token:'2K-4K / day', members:['alert','diag','order'], text:'Alarm, diagnosis and ticket closure for stable sites.' },
+    { id:'inspect', title:'Inspection-Plus Squad', token:'6K-10K / day', members:['alert','diag','order','insp','sched'], text:'UAV inspection, defect recognition and resource dispatch.' },
+    { id:'full', title:'Full-Managed Squad', token:'12K-18K / day', members:['ops','alert','diag','order','sched','safe'], text:'A full digital team with arbitration, reporting and safety review.' },
+  ];
+  const approvalCards = [
+    { id:'approve', title:'Hot-Spot Recheck', metric:'28 kWh/day loss', text:'Drone infrared recheck tomorrow 09:00; confirm before replacement.' },
+    { id:'review', title:'Cleaning Schedule', metric:'6,800 kWh/day at risk', text:'Start A-zone cleaning robot at 06:00; weather and ROI are positive.' },
+    { id:'manual', title:'Arbitration Case', metric:'Risk expands if ignored', text:'Operation supervisor recommends low-cost UAV verification first.' },
+  ];
+  return (
+    <div className={`ops-bigscreen ${isWorld ? 'world-mode' : 'site-mode'} scene-${sceneId.toLowerCase()}`}>
+      <div className="ops-world">
+        <div className="ops-reactor" onClick={()=>onSelectScene?.('S2')}>
+          <span>WUXIANG CLOUD VALLEY</span>
+          <b>Token Reactor</b>
+          <i>{isManaged ? '365x' : 'LIVE'}</i>
+        </div>
+        {plants.map((p, idx) => (
+          <button
+            key={p.id}
+            type="button"
+            className={`ops-plant-node${idx===1 && !isWorld ? ' selected' : ''}`}
+            style={{ left:`${p.x}%`, top:`${p.y}%`, '--node-color':p.tone, '--delay':`${idx * .24}s` }}
+            onClick={()=>onSelectScene?.(sceneId === 'S1' ? 'S2' : 'S3')}
+          >
+            <span className="ops-plant-dot"/>
+            <span className="ops-plant-label"><b>{p.name}</b><em>{p.mw} MWp · {p.task}</em></span>
+            <span className="ops-worker-pips"><i/><i/><i/></span>
+          </button>
+        ))}
+        <svg className="ops-token-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          {plants.map((p, idx) => (
+            <path key={p.id} d={`M50 52 C${55 + idx * 3} ${28 + idx * 4}, ${p.x} ${p.y - 12}, ${p.x} ${p.y}`} style={{'--line-color':p.tone, '--delay':`${idx * .3}s`}}/>
+          ))}
+        </svg>
+      </div>
+
+      <div className="ops-hero-copy">
+        <span>{sceneId} · {currentScene?.interaction}</span>
+        <h1>{isWorld ? 'Token, going overseas.' : simSceneTitle(currentScene, false)}</h1>
+        <p>{isWorld ? 'A 24/7 digital O&M team for every ASEAN plant.' : simSceneLine(currentScene, false)}</p>
+      </div>
+
+      <div className="ops-kpi-stack">
+        <div><span>Today Tokens</span><b>{isManaged ? '412,840' : '128,450'}</b></div>
+        <div><span>Digital Employees</span><b>86</b></div>
+        <div><span>Managed Plants</span><b>{isReport ? '12' : '11'}</b></div>
+      </div>
+
+      {sceneId === 'S2' && (
+        <div className="ops-team-market">
+          {teamPacks.map((pack, idx) => (
+            <button key={pack.id} className={`ops-team-pack pack-${pack.id}`} type="button" onClick={()=>onSelectScene?.('S3')}>
+              <span className="pack-kicker">TEAM PACKAGE 0{idx+1}</span>
+              <b>{pack.title}</b>
+              <em>{pack.token}</em>
+              <small>{pack.text}</small>
+              <span className="pack-agents">
+                {pack.members.map(id => {
+                  const a = _ABI[id]; if (!a) return null;
+                  return <i key={id} title={a.enName}>{a.code}</i>;
+                })}
+              </span>
+              <strong>HIRE & DEPLOY</strong>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!isWorld && (
+        <div className="ops-site-hud">
+          <div className="site-title"><span>100 MWp PV PLANT</span><b>A digital workforce, on duty 24/7.</b></div>
+          <div className="site-metrics">
+            <div><span>PR</span><b>{isReport ? '82.6%' : '82.1%'}</b></div>
+            <div><span>Availability</span><b>99.4%</b></div>
+            <div><span>Daily Yield</span><b>400K kWh</b></div>
+          </div>
+          <div className="site-agent-row">
+            {activeAgents.map(id => {
+              const a = _ABI[id]; if (!a) return null;
+              return (
+                <button key={id} type="button" className="site-agent-chip" onClick={()=>onOpenAgent?.(id)}>
+                  <RobotAvatar agent={a} size={34} glow/>
+                  <span><b>{a.en || a.short}</b><em>{sceneId==='S5'?'Relaying':sceneId==='S6'?'Judging':'On duty'}</em></span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {(sceneId === 'S4' || sceneId === 'S5' || sceneId === 'S6') && (
+        <div className="ops-incident-card">
+          <span className="incident-sev">STRING UNDERPERFORMANCE</span>
+          <b>Array 2 / Inverter 12 / Combiner 3 / String 4</b>
+          <p>Current is 18% below peer strings; 3 auto-recovery events in 7 days. Alarm, Diagnosis, Ticket, Schedule and Safety are now collaborating.</p>
+          <div className="incident-flow"><i>ALT</i><i>DGN</i><i>ORD</i><i>SCH</i><i>SAF</i></div>
+        </div>
+      )}
+
+      {isManager && (
+        <div className="ops-approval-board">
+          <div className="approval-head"><span>MANAGER MODE</span><b>AI has prepared the context. You just make the call.</b></div>
+          {approvalCards.map(card => (
+            <button key={card.id} className={`approval-card${selectedDecision===card.id?' selected':''}`} onClick={()=>onDecision?.(card.id)}>
+              <span>{card.metric}</span>
+              <b>{card.title}</b>
+              <small>{card.text}</small>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {isManaged && (
+        <div className="ops-managed-ritual">
+          <button type="button" className="managed-button" onClick={()=>onAutonomyChange?.(4)}>Hand this plant over to iRun</button>
+          <div className="managed-timeline">
+            {['1x','30x','365x'].map((speed, idx) => <button key={speed} className={autonomyLevel >= idx + 2 ? 'active' : ''} onClick={()=>onAutonomyChange?.(Math.min(4, idx + 2))}>{speed}</button>)}
+          </div>
+          <div className="managed-year">
+            <span>One year, run by your digital team.</span>
+            <b>+1.8M kWh</b>
+            <em>Annual recovered yield · ¥720K</em>
+          </div>
+        </div>
+      )}
+
+      {isReport && (
+        <div className="ops-report-banner">
+          <span>{sceneId === 'S10' ? 'EXPERIENCE RETURNED' : 'TODAY’S TEAM REPORT'}</span>
+          <b>{sceneId === 'S10' ? 'Every case makes the whole team smarter.' : '241 closed autonomously. 1 needed you. 23 minutes of your time.'}</b>
+          <div><i>Total Score {total}</i><i>{badges.length || (selected ? 1 : 0)} Badge</i><i>{sceneId === 'S10' ? '58 new cases' : '12,840 tokens'}</i></div>
+        </div>
+      )}
+
+      <div className="ops-bottom-actions">
+        <button onClick={()=>onSelectScene?.('S2')}>Hire a Team</button>
+        <button onClick={()=>onSelectScene?.('S7')}>Be the Manager</button>
+        <button className="primary" onClick={()=>onSelectScene?.('S9')}>Hand over to iRun</button>
+      </div>
+    </div>
+  );
+}
+
+window.IRUN_UI = { TopBar, EventStream, EventStreamTab, DispatchPanel, DispatchTab, AgentDock, AgentTokenPanel, MiniMap, QuickFuncs, AgentModal, AgentsRail, isAgentRailDisabled, RobotAvatar, ModeStrip, SkillModal, PlantTitle, DroneFlight, PlantRobot, PlantAgentField, DispatchedRobots, OverviewDispatchRobot, ScenarioDirectorRail, ManagerDecisionConsole, DigitalTeamOrgPanel, MissionFeedbackLayer, OperationsBigScreenLayer, useClock, fmtTime, fmtDate, fmtDateTime, LangCtx };
 
 // ──────────────────────────────────────────────────────────────────────
 // Collapsed event-stream tab — vertical handle on the left

@@ -1,7 +1,7 @@
 // iRun Workbench — App root
 const { useState: _aUseState, useEffect: _aUseEffect, useCallback: _aUseCallback } = React;
 const useState = _aUseState, useEffect = _aUseEffect, useCallback = _aUseCallback;
-const { TopBar, EventStream, EventStreamTab, DispatchPanel, DispatchTab, AgentDock, AgentTokenPanel, MiniMap, QuickFuncs, AgentModal, AgentsRail, ModeStrip, SkillModal, PlantTitle, DroneFlight, PlantRobot, PlantAgentField, DispatchedRobots, OverviewDispatchRobot, ScenarioDirectorRail, ManagerDecisionConsole, DigitalTeamOrgPanel, MissionFeedbackLayer, LangCtx } = window.IRUN_UI;
+const { TopBar, EventStream, EventStreamTab, DispatchPanel, DispatchTab, AgentDock, AgentTokenPanel, MiniMap, QuickFuncs, AgentModal, AgentsRail, ModeStrip, SkillModal, PlantTitle, DroneFlight, PlantRobot, PlantAgentField, DispatchedRobots, OverviewDispatchRobot, ScenarioDirectorRail, ManagerDecisionConsole, DigitalTeamOrgPanel, MissionFeedbackLayer, OperationsBigScreenLayer, LangCtx } = window.IRUN_UI;
 const { PlantsMap, Map2Overlay } = window.IRUN_MAP;
 const { PlantDetail, PlantInlineDock, useScenarioStepping } = window.IRUN_DETAIL;
 const { Scene3D } = window.IRUN_SCENE3D;
@@ -104,7 +104,7 @@ function App(){
     setFocusId(id);
   }, [dispatchCollapsed, tenantPlants, applyDispatchPlantCtx]);
 
-  const [lang, setLang] = useState(()=>{ try{ return localStorage.getItem('irun:lang')||'zh'; }catch(e){ return 'zh'; } });
+  const [lang, setLang] = useState(()=>{ try{ return localStorage.getItem('irun:lang')||'en'; }catch(e){ return 'en'; } });
   const [theme, setTheme] = useState(()=>{ try{ return localStorage.getItem('irun:theme')||'light'; }catch(e){ return 'light'; } });
   const toggleTheme = () => setTheme(t => {
     const n = t==='light' ? 'dark' : 'light';
@@ -547,6 +547,18 @@ function App(){
           badges={simBadges}
           selectedDecision={simDecisionId}
           autonomyLevel={simAutonomyLevel}/>
+      )}
+      {simulatorEnabled && (
+        <OperationsBigScreenLayer
+          currentScene={currentSimScene}
+          score={simScore}
+          badges={simBadges}
+          selectedDecision={simDecisionId}
+          autonomyLevel={simAutonomyLevel}
+          onSelectScene={setSimulatorScene}
+          onDecision={handleSimulatorDecision}
+          onAutonomyChange={handleAutonomyLevel}
+          onOpenAgent={setOpenAgent}/>
       )}
       {!simulatorEnabled && (
         <button className="sim-launch" onClick={()=>toggleSimulator(true)}>
