@@ -7,6 +7,7 @@
 ## 规划文档
 
 - [iRun AI 运维经理模拟器改造方案](docs/irun-ai-operations-manager-simulator-plan.md)
+- [iRun 平台结构分析](docs/irun-platform-structure-analysis.md)
 
 ## 运行
 
