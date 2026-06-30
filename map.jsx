@@ -93,10 +93,33 @@ function PlantsMap({focusId, onFocus, plants}){
 // Map2Overlay — floating plant pins for map2 (city background) mode
 // Each plant carries its own mapX / mapY (% of canvas) in data.js,
 // so we just filter by current tenant and render in place.
+const MAP2_TOKEN_SOURCE = { x: 46.2, y: 37.5 };
+const MAP2_TOKEN_META = {
+  '1879736396404850688': { color:'#22d3ee', width:3.6, task:'inspect', sway:8, lift:9 },
+  '1861683646672760832': { color:'#34d399', width:2.8, task:'managed', sway:-4, lift:6 },
+  '1881233694553112576': { color:'#a78bfa', width:3.2, task:'diagnose', sway:-1, lift:1 },
+  '1879736315115044864': { color:'#f87171', width:4.4, task:'alarm', sway:-15, lift:8 },
+  '1879736307422691328': { color:'#fbbf24', width:3.0, task:'schedule', sway:-7, lift:2 },
+};
+function map2Percent(v){
+  const n = parseFloat(String(v || '').replace('%', ''));
+  return Number.isFinite(n) ? n : 0;
+}
+function map2EnergyPath(plant, idx, meta){
+  const x = map2Percent(plant.mapX);
+  const y = map2Percent(plant.mapY);
+  const dx = x - MAP2_TOKEN_SOURCE.x;
+  const c1x = MAP2_TOKEN_SOURCE.x + dx * 0.24 + meta.sway;
+  const c2x = MAP2_TOKEN_SOURCE.x + dx * 0.78 + meta.sway * 0.4;
+  const c1y = MAP2_TOKEN_SOURCE.y - 6 - meta.lift - (idx % 2) * 2;
+  const c2y = Math.min(y - 11, MAP2_TOKEN_SOURCE.y - 1) - meta.lift * 0.35;
+  return `M${MAP2_TOKEN_SOURCE.x} ${MAP2_TOKEN_SOURCE.y} C${c1x} ${c1y}, ${c2x} ${c2y}, ${x} ${y}`;
+}
 function Map2Overlay({ focusId, onFocus, onRobotClick, subMode, tenantId, plants }) {
   const zh = React.useContext(window.IRUN_UI?.LangCtx || React.createContext('zh')) !== 'en';
   const list = plants || window.IRUN?.PLANTS || [];
   const visible = list.filter(p => (!tenantId || p.tenant === tenantId) && p.mapX && p.mapY);
+  const showEnergyLines = subMode === 'show' || subMode === 'pic1' || subMode === 'pic2';
   const handleRobotKey = (e) => {
     if (e.key !== 'Enter' && e.key !== ' ') return;
     e.preventDefault();
@@ -104,17 +127,43 @@ function Map2Overlay({ focusId, onFocus, onRobotClick, subMode, tenantId, plants
   };
   return (
     <div className="map2-overlay">
+      {showEnergyLines && (
+        <svg className="map2-token-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          {visible.map((plant, idx) => {
+            const meta = MAP2_TOKEN_META[plant.id] || { color:'#22d3ee', width:2.6, task:'managed', sway:0, lift:0 };
+            const path = map2EnergyPath(plant, idx, meta);
+            return (
+              <g
+                key={`flow-${plant.id}`}
+                className={`map2-token-flow task-${meta.task}`}
+                style={{
+                  '--flow-color': meta.color,
+                  '--flow-width': `${meta.width}px`,
+                  '--flow-base-width': `${Math.max(1.2, meta.width * 0.72).toFixed(2)}px`,
+                  '--flow-glow-width': `${(meta.width * 4.4).toFixed(2)}px`,
+                  '--flow-delay': `${idx * 0.24}s`
+                }}
+              >
+                <path className="map2-token-line-glow" d={path}/>
+                <path className="map2-token-line-base" d={path}/>
+                <path className="map2-token-line-pulse" d={path}/>
+              </g>
+            );
+          })}
+          <circle className="map2-token-source" cx={MAP2_TOKEN_SOURCE.x} cy={MAP2_TOKEN_SOURCE.y} r="0.54"/>
+        </svg>
+      )}
       {(subMode === 'show' || subMode === 'pic1' || subMode === 'pic2') && (
         <>
-          <div className="patrol-robot patrol-robot-1" role="button" tabIndex="0" aria-label={zh?'展开对话调度':'Open AI Dispatch'} onClick={onRobotClick} onKeyDown={handleRobotKey}>
+          <div className="patrol-robot patrol-robot-1" role="button" tabIndex="0" aria-label={zh?'巡检机器人':'Patrol robot'} onClick={onRobotClick} onKeyDown={handleRobotKey}>
             <div className="patrol-robot-sprite"/>
             <div className="patrol-robot-shadow"/>
           </div>
-          <div className="patrol-robot patrol-robot-2" role="button" tabIndex="0" aria-label={zh?'展开对话调度':'Open AI Dispatch'} onClick={onRobotClick} onKeyDown={handleRobotKey}>
+          <div className="patrol-robot patrol-robot-2" role="button" tabIndex="0" aria-label={zh?'巡检机器人':'Patrol robot'} onClick={onRobotClick} onKeyDown={handleRobotKey}>
             <div className="patrol-robot-sprite"/>
             <div className="patrol-robot-shadow"/>
           </div>
-          <div className="patrol-robot patrol-robot-3" role="button" tabIndex="0" aria-label={zh?'展开对话调度':'Open AI Dispatch'} onClick={onRobotClick} onKeyDown={handleRobotKey}>
+          <div className="patrol-robot patrol-robot-3" role="button" tabIndex="0" aria-label={zh?'巡检机器人':'Patrol robot'} onClick={onRobotClick} onKeyDown={handleRobotKey}>
             <div className="patrol-robot-sprite"/>
             <div className="patrol-robot-shadow"/>
           </div>
@@ -123,6 +172,14 @@ function Map2Overlay({ focusId, onFocus, onRobotClick, subMode, tenantId, plants
       {visible.map((plant, i) => {
         let colour = '#22d3ee';
         let statusLabel = (zh?'✓ 正常':'✓ Normal')
+        if(plant?.enStatus === 'Untended' || plant?.status === 'Untended'){
+          colour = '#fbbf24'
+          statusLabel = 'Untended'
+        }
+        if(plant?.irunManaged || plant?.enStatus === 'iRun Managed'){
+          colour = '#34d399'
+          statusLabel = 'iRun Managed'
+        }
         if(plant?.alarmStatus==='alarm'){
           colour = '#fbbf24'
           statusLabel = (zh?'△ 关注':'△ Watch')
@@ -130,6 +187,14 @@ function Map2Overlay({ focusId, onFocus, onRobotClick, subMode, tenantId, plants
         if(plant?.tags?.includes('KPI_SEVERE')){
           colour = '#f87171'
           statusLabel = (zh?'⚠ 高风险':'⚠ High')
+        }
+        if(plant?.enStatus === 'Untended' || plant?.status === 'Untended'){
+          colour = '#fbbf24'
+          statusLabel = 'Untended'
+        }
+        if(plant?.irunManaged || plant?.enStatus === 'iRun Managed'){
+          colour = '#34d399'
+          statusLabel = 'iRun Managed'
         }
         const fullName = zh ? plant.name : (plant.enName || plant.name);
         const pinName = (fullName.split('·').pop() || plant.short).trim();

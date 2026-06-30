@@ -1,7 +1,7 @@
 // iRun Workbench — App root
 const { useState: _aUseState, useEffect: _aUseEffect, useCallback: _aUseCallback } = React;
 const useState = _aUseState, useEffect = _aUseEffect, useCallback = _aUseCallback;
-const { TopBar, EventStream, EventStreamTab, DispatchPanel, DispatchTab, AgentDock, MiniMap, QuickFuncs, AgentModal, AgentsRail, ModeStrip, SkillModal, PlantTitle, DroneFlight, PlantRobot, PlantAgentField, DispatchedRobots, OverviewDispatchRobot, ScenarioDirectorRail, ManagerDecisionConsole, DigitalTeamOrgPanel, MissionFeedbackLayer, OperationsBigScreenLayer, LangCtx } = window.IRUN_UI;
+const { TopBar, EventStream, EventStreamTab, DispatchPanel, DispatchTab, AgentDock, MiniMap, QuickFuncs, AgentModal, AgentsRail, ModeStrip, SkillModal, PlantTitle, DroneFlight, PlantRobot, PlantAgentField, DispatchedRobots, OverviewDispatchRobot, ScenarioDirectorRail, ManagerDecisionConsole, DigitalTeamOrgPanel, OperationsActDock, TalentMarketOverlay, PackagePicker, TalentDeployFlight, CameraDrillOverlay, MissionFeedbackLayer, OperationsBigScreenLayer, LangCtx } = window.IRUN_UI;
 const { PlantsMap, Map2Overlay } = window.IRUN_MAP;
 const { PlantDetail, PlantInlineDock, useScenarioStepping } = window.IRUN_DETAIL;
 const { Scene3D } = window.IRUN_SCENE3D;
@@ -11,9 +11,33 @@ const getDemoPlantProfile = (id) => window.IRUN?.getDemoPlantProfile?.(id) || nu
 const isUavDemoPlant = (id) => window.IRUN?.isUavDemoPlant?.(id) || false;
 const APP_SIMULATOR_SCENES = window.IRUN?.SIMULATOR_SCENES || [];
 const APP_SIMULATOR_DECISIONS = window.IRUN?.SIMULATOR_DECISIONS || [];
+const CEBU_PLANT_ID = '1861683646672760832';
+const DEPLOY_FIELD_POSITIONS = [
+  { x: 32, y: 54 }, { x: 49, y: 44 }, { x: 69, y: 54 }, { x: 78, y: 38 },
+  { x: 58, y: 68 }, { x: 43, y: 66 }, { x: 72, y: 70 }, { x: 52, y: 34 },
+];
+const DEPLOY_PACKAGE_MEMBERS = {
+  basic: ['alert','diag','order','warn','ops'],
+  inspect: ['alert','diag','order','insp','sched','safe','ops'],
+  full: ['ops','alert','diag','order','sched','safe','insp','pv'],
+};
 
 function clampSimScore(n) {
   return Math.max(0, Math.min(100, Math.round(Number(n) || 0)));
+}
+
+function makeDeployRobots(packageId) {
+  const base = DEPLOY_PACKAGE_MEMBERS[packageId] || DEPLOY_PACKAGE_MEMBERS.inspect;
+  const all = ['ops','alert','diag','order','sched','safe','insp','pv','warn','query'];
+  const targetCount = 5 + Math.floor(Math.random() * 4);
+  const ids = [...base];
+  all.forEach(id => { if (ids.length < targetCount && !ids.includes(id)) ids.push(id); });
+  return ids.slice(0, targetCount).map((agentId, idx) => ({
+    id: `deploy-${Date.now()}-${idx}-${agentId}`,
+    agentId,
+    delay: idx * 0.13,
+    orbit: idx,
+  }));
 }
 
 function App(){
@@ -141,17 +165,16 @@ function App(){
   const onRobotDone = useCallback((id) => {
     setDispatchedRobots(prev => prev.filter(r => r.id !== id));
   }, []);
-  const [simulatorEnabled, setSimulatorEnabled] = useState(()=>{
-    try {
-      const saved = localStorage.getItem('irun:simulator-enabled');
-      return saved === null ? true : saved === '1';
-    } catch(e) { return true; }
-  });
+  const [simulatorEnabled, setSimulatorEnabled] = useState(false);
   const [simSceneId, setSimSceneId] = useState('S1');
   const [simDecisionId, setSimDecisionId] = useState(null);
   const [simBadges, setSimBadges] = useState([]);
   const [simAutonomyLevel, setSimAutonomyLevel] = useState(2);
   const [simScore, setSimScore] = useState({ safety: 82, efficiency: 76, autonomy: 68, business: 74 });
+  const [actDockOpen, setActDockOpen] = useState(false);
+  const [packagePickerOpen, setPackagePickerOpen] = useState(false);
+  const [deployRun, setDeployRun] = useState(null);
+  const [drillActive, setDrillActive] = useState(false);
   // Clear robots + busyMap on mode switch / plant leave
   useEffect(()=>{
     if (mode === 'command') { setBusyMap({}); }
@@ -270,6 +293,7 @@ function App(){
     badges: simBadges,
     selectedDecision: simDecisionId,
     autonomyLevel: simAutonomyLevel,
+    onToggle: () => toggleSimulator(!simulatorEnabled),
   };
 
   // Page load: fetch station list and override plant name/enName by id
@@ -340,13 +364,16 @@ function App(){
       if (demo) {
         setMode('auto');
         setScenarioIdx(demo.scenarioIdx);
+      } else if (focusPlant.irunManaged || focusPlant.enStatus === 'iRun Managed') {
+        setMode('auto');
+        setScenarioIdx(typeof focusPlant.defaultScenarioIdx === 'number' ? focusPlant.defaultScenarioIdx : 0);
       } else {
         setMode('command');
         const def = typeof focusPlant.defaultScenarioIdx === 'number' ? focusPlant.defaultScenarioIdx : 0;
         setScenarioIdx(def);
       }
     }
-  }, [focusPlant?.id]);
+  }, [focusPlant?.id, focusPlant?.irunManaged, focusPlant?.enStatus]);
 
   // 焦点电站切换：隐藏调度列表内电站默认关闭调度，其余电站默认打开
   useEffect(() => {
@@ -364,15 +391,16 @@ function App(){
     }
   }, [focusId]);
 
-  const hideDispatchRail = !simulatorEnabled && isDispatchHiddenPlant(focusPlant?.id);
+  const hideDispatchRail = !simulatorEnabled || (!simulatorEnabled && isDispatchHiddenPlant(focusPlant?.id));
   const hideStreamRail = !simulatorEnabled;
 
   const handleModeChange = useCallback((next) => {
     const demo = getDemoPlantProfile(focusPlant?.id);
+    const managed = focusPlant?.irunManaged || focusPlant?.enStatus === 'iRun Managed';
     if (demo && next === 'command') return;
-    if (focusPlant?.id && !demo && next === 'auto') return;
+    if (focusPlant?.id && !demo && !managed && next === 'auto') return;
     setMode(next);
-  }, [focusPlant?.id]);
+  }, [focusPlant?.id, focusPlant?.irunManaged, focusPlant?.enStatus]);
 
   const handleScenarioChange = useCallback((idx) => {
     if (getDemoPlantProfile(focusPlant?.id)) return;
@@ -412,11 +440,63 @@ function App(){
     return ()=>window.removeEventListener('keydown', onKey);
   },[openAgent, focusId]);
 
-  const showBottomDock = simulatorEnabled || (viewMode === 'img2' && focusPlant);
+  const openHireDeploy = useCallback(() => {
+    setPackagePickerOpen(true);
+    setActDockOpen(true);
+  }, []);
+
+  const markCebuManaged = useCallback((robots) => {
+    const robotIds = robots.map(r => r.agentId);
+    const field = robotIds.map((agentId, idx) => ({
+      agent: agentId,
+      x: DEPLOY_FIELD_POSITIONS[idx % DEPLOY_FIELD_POSITIONS.length].x,
+      y: DEPLOY_FIELD_POSITIONS[idx % DEPLOY_FIELD_POSITIONS.length].y,
+    }));
+    setPlants(prev => {
+      const next = prev.map(p => String(p.id) === CEBU_PLANT_ID ? ({
+        ...p,
+        status: 'iRun Managed',
+        enStatus: 'iRun Managed',
+        irunManaged: true,
+        risk: 'low',
+        alerts: 0,
+        alarmStatus: 'normal',
+        tags: [],
+        agents: Array.from(new Set([...(p.agents || []), ...robotIds])),
+        robotField: field,
+        defaultScenarioIdx: 0,
+      }) : p);
+      if (window.IRUN) window.IRUN.PLANTS = next;
+      return next;
+    });
+  }, []);
+
+  const startHireDeploy = useCallback((packageId) => {
+    const robots = makeDeployRobots(packageId);
+    setPackagePickerOpen(false);
+    setActDockOpen(false);
+    markCebuManaged(robots);
+    setDeployRun({ id: `run-${Date.now()}`, packageId, robots });
+  }, [markCebuManaged]);
+
+  const finishHireDeploy = useCallback(() => {
+    setDrillActive(true);
+    window.setTimeout(() => {
+      setDeployRun(null);
+      setDrillActive(false);
+      setDispatchPlantCtx(null);
+      setFocusId(CEBU_PLANT_ID);
+      setViewMode('img2');
+      setMode('auto');
+      setScenarioIdx(0);
+    }, 920);
+  }, []);
+
+  const showBottomDock = simulatorEnabled || (viewMode === 'img2' && focusPlant) || (!simulatorEnabled && viewMode === 'map2' && actDockOpen);
 
   return (
     <LangCtx.Provider value={lang}>
-    <div className={`workbench theme-${theme}${agentsRailVisible ? ' agents-visible' : ''}${showBottomDock ? '' : ' no-bottom-dock'}${(viewMode==='img2' && focusPlant) ? ' img2-focused' : ''}`}>
+    <div className={`workbench theme-${theme}${agentsRailVisible ? ' agents-visible' : ''}${actDockOpen ? ' act-dock-open' : ''}${deployRun ? ' deploying' : ''}${drillActive ? ' drilling' : ''}${showBottomDock ? '' : ' no-bottom-dock'}${(viewMode==='img2' && focusPlant) ? ' img2-focused' : ''}`}>
       {/* background scene */}
       <div className="scene">
         <div className="grid-bg"/>
@@ -462,25 +542,11 @@ function App(){
           onRobotClick={()=>{
             setFocusId(null);
             setDispatchPlantCtx(null);
-            if (dispatchCollapsed) toggleDispatch(false);
           }}
           onFocus={(id, plant)=>{
             const p = plant || plants.find(x => x.id === id);
             applyDispatchPlantCtx(id, p);
-            const hideDispatch = isDispatchHiddenPlant(id);
-            if (!dispatchCollapsed) {
-              return;
-            }
-            if (hideDispatch) toggleDispatch(true);
-            else if (dispatchCollapsed) toggleDispatch(false);
-            if (hideDispatch) toggleStream(false);
-            else {
-              setStreamCollapsed(true);
-              try { localStorage.setItem('irun:stream-collapsed', '1'); } catch (e) {}
-            }
-            // dispatch 展开时：只做上面这一步，不改变 focusPlant（TopBar / 详情等保持不变）
-            // 隐藏调度电站：仍进入 img2 焦点视图
-            // dispatch 折叠时：保持原行为（更新焦点并进入 img2）
+            setActDockOpen(false);
             setFocusId(id);
             setViewMode('img2');
 
@@ -552,6 +618,17 @@ function App(){
       {/* top KPIs */}
       <TopBar focusPlant={focusPlant} plants={tenantPlants} agg={tenantAgg} onPlantChange={handlePlantChange} tenant={tenant} tenantIdx={tenantIdx} onTenant={onTenantChange} onBack={()=>setFocusId(null)} lang={lang} onLang={toggleLang} theme={theme} onTheme={toggleTheme} simulator={simulatorState} agentsRailVisible={agentsRailVisible} onAgentsRailToggle={()=>setAgentsRailVisible(v=>!v)}/>
 
+      {!simulatorEnabled && viewMode === 'map2' && (
+        <TalentMarketOverlay onHireDeploy={openHireDeploy}/>
+      )}
+      {packagePickerOpen && (
+        <PackagePicker onPick={startHireDeploy} onClose={()=>setPackagePickerOpen(false)}/>
+      )}
+      {deployRun && (
+        <TalentDeployFlight key={deployRun.id} robots={deployRun.robots} onComplete={finishHireDeploy}/>
+      )}
+      {drillActive && <CameraDrillOverlay/>}
+
       {simulatorEnabled && (
         <MissionFeedbackLayer
           currentScene={currentSimScene}
@@ -572,16 +649,12 @@ function App(){
           onAutonomyChange={handleAutonomyLevel}
           onOpenAgent={setOpenAgent}/>
       )}
-      {!simulatorEnabled && (
-        <button className="sim-launch" onClick={()=>toggleSimulator(true)}>
-          {lang==='en'?'Simulator':'模拟器'}
-        </button>
-      )}
       {!simulatorEnabled && viewMode === 'map2' && (
         <div className="act-switcher" aria-label="Act navigation">
-          <button type="button">Act One</button>
-          <button type="button">Act Two</button>
-          <button type="button">Act Three</button>
+          <button type="button" onClick={openHireDeploy}>HireaTeam</button>
+          <button type="button">BetheManager</button>
+          <button type="button">Handoverto iRun</button>
+          <button type="button" className={actDockOpen ? 'active' : ''} onClick={()=>setActDockOpen(v=>!v)}>ACT</button>
         </div>
       )}
 
@@ -675,6 +748,8 @@ function App(){
                 badges={simBadges}
                 selectedDecision={simDecisionId}
                 onOpen={setOpenAgent}/>
+            : (viewMode === 'map2'
+            ? <OperationsActDock plants={plants} onHireDeploy={openHireDeploy}/>
             : <PlantInlineDock
                 plant={focusPlant}
                 scenario={scenario}
@@ -684,7 +759,7 @@ function App(){
                 mode={mode}
                 scenarioIdx={scenarioIdx}
                 onModeChange={handleModeChange}
-                onScenarioChange={handleScenarioChange}/>}
+                onScenarioChange={handleScenarioChange}/>)}
         </div>
       )}
 

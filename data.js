@@ -114,7 +114,7 @@ const PLANTS = [
   },
 
   { id: '1861683646672760832', name: '', enName: '', short: 'Cebu-N',   tenant: 'ilp', region: 'Philippines·宿务', enRegion: 'Philippines · Cebu',   city: '宿务',     enCity: 'Cebu',
-    capacity: 42.0, power:0, gen: 184.5, alerts: 5, risk: 'high', status: '指挥模式', enStatus: 'Command Mode',
+    capacity: 42.0, power:0, gen: 184.5, alerts: 5, risk: 'mid', status: 'Untended', enStatus: 'Untended',
     x: 84, y: 54, mapX: '33%', mapY: '46%', agents: ['ops','warn','alert','diag','order','sched'] },
 
   { id: '1881233694553112576', name: '', enName: '',    short: 'Selangor',  tenant: 'ilp', region: 'Malaysia·吉隆坡', enRegion: 'Malaysia · Kuala Lumpur', city: '吉隆坡', enCity: 'Kuala Lumpur',
@@ -141,7 +141,7 @@ const PLANTS = [
 
   { id: '1879736315115044864', name: '', enName: '', short: 'Manila-E',  tenant: 'ilp', region: 'Philippines·马尼拉', enRegion: 'Philippines · Manila', city: '马尼拉', enCity: 'Manila',
     capacity: 38.0, power: 0, gen: 158.0, alerts: 1, risk: 'low',  status: '托管中',   enStatus: 'Managed',
-    x: 70, y: 78, mapX: '45%', mapY: '35%', agents: ['ops','warn','alert','diag','order','sched','query'] },
+    x: 70, y: 78, mapX: '11%', mapY: '57%', agents: ['ops','warn','alert','diag','order','sched','query'] },
 
   { id: '1879736307422691328', name: '', enName: '',  short: 'Penang-W',  tenant: 'ilp', region: 'Malaysia·槟城',  enRegion: 'Malaysia · Penang',    city: '槟城',     enCity: 'Penang',
     capacity: 32.0, power: 0, gen: 138.0, alerts: 3, risk: 'mid',  status: '托管中',   enStatus: 'Managed',

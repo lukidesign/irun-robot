@@ -436,12 +436,15 @@ function TopBar({focusPlant, plants, agg, onPlantChange, tenant, tenantIdx, onTe
       <div className="brand">
         <div className="brand-mark"><img src="assets/app/brand/irun-icon.png" alt="iRun" className="brand-icon"/></div>
         <div className="brand-text">
-          <b>iRUN<span style={{color:'var(--cyan)'}}>·</span>WORKBENCH</b>
+          <b>iRUN<span style={{color:'var(--cyan)'}}>·</span>AI</b>
         </div>
       </div>
 
       <div className="crumbs">
-        <span className={`crumb crumb-top ${!focusPlant?'active':''}`} onClick={onBack} style={{cursor:focusPlant?'pointer':'default'}}>{zh?'总览':'Overview'}</span>
+        <div className="crumb-row">
+          <span className={`crumb crumb-top ${!focusPlant?'active':''}`} onClick={onBack} style={{cursor:focusPlant?'pointer':'default'}}>{zh?'总览':'Overview'}</span>
+          <span className="top-slogan">SOLGAN</span>
+        </div>
         {focusPlant && <>
           <div className="crumb-picker" ref={pickerRef}>
             <button type="button"
@@ -480,6 +483,11 @@ function TopBar({focusPlant, plants, agg, onPlantChange, tenant, tenantIdx, onTe
 
       <div className="right">
         <div className="r-row">
+          {simulator && (
+            <button className={`top-sim-btn${simulator.enabled ? ' active' : ''}`} onClick={simulator.onToggle}>
+              {zh?'模拟器':'Simulator'}
+            </button>
+          )}
           <div className="live-wrap">
             <div className="live-time">
               <span className="dt">{fmtDate(clock)}</span>
@@ -2966,11 +2974,11 @@ function OperationsBigScreenLayer({ currentScene, score, badges=[], selectedDeci
   const selected = _SIM_DECISIONS.find(d => d.id === selectedDecision);
   const total = clampScore((score.safety + score.efficiency + score.autonomy + score.business) / 4);
   const plants = [
-    { id:'IDN-A', name:'Indonesia A', mw:80, x:17, y:60, tone:'#34d399', tokens:'18.2K', task:'Managed' },
-    { id:'MYS-B', name:'Malaysia B', mw:132, x:39, y:69, tone:'#22d3ee', tokens:'24.8K', task:'Inspecting' },
-    { id:'THA-E', name:'Thailand E', mw:95, x:54, y:45, tone:'#fbbf24', tokens:'16.7K', task:'Scheduling' },
-    { id:'VNM-C', name:'Vietnam C', mw:150, x:66, y:35, tone:'#a78bfa', tokens:'31.6K', task:'Diagnosing' },
-    { id:'PHL-D', name:'Philippines D', mw:60, x:79, y:54, tone:'#f87171', tokens:'11.1K', task:'Alarm' },
+    { id:'IDN-A', name:'Indonesia A', mw:80, x:17, y:60, tone:'#34d399', tokens:'18.2K', task:'Managed', width:.28 },
+    { id:'MYS-B', name:'Malaysia B', mw:132, x:39, y:69, tone:'#22d3ee', tokens:'24.8K', task:'Inspecting', width:.36 },
+    { id:'THA-E', name:'Thailand E', mw:95, x:54, y:45, tone:'#fbbf24', tokens:'16.7K', task:'Scheduling', width:.24 },
+    { id:'VNM-C', name:'Vietnam C', mw:150, x:66, y:35, tone:'#a78bfa', tokens:'31.6K', task:'Diagnosing', width:.44 },
+    { id:'PHL-D', name:'Philippines D', mw:60, x:79, y:54, tone:'#f87171', tokens:'11.1K', task:'Alarm', width:.32 },
   ];
   const teamPacks = [
     { id:'basic', title:'Basic O&M Squad', token:'2K-4K / day', members:['alert','diag','order'], text:'Alarm, diagnosis and ticket closure for stable sites.' },
@@ -3005,7 +3013,7 @@ function OperationsBigScreenLayer({ currentScene, score, badges=[], selectedDeci
         ))}
         <svg className="ops-token-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           {plants.map((p, idx) => (
-            <path key={p.id} d={`M50 52 C${55 + idx * 3} ${28 + idx * 4}, ${p.x} ${p.y - 12}, ${p.x} ${p.y}`} style={{'--line-color':p.tone, '--delay':`${idx * .3}s`}}/>
+            <path key={p.id} d={`M50 52 C${55 + idx * 3} ${28 + idx * 4}, ${p.x} ${p.y - 12}, ${p.x} ${p.y}`} style={{'--line-color':p.tone, '--line-width':p.width, '--delay':`${idx * .3}s`}}/>
           ))}
         </svg>
       </div>
@@ -3109,15 +3117,148 @@ function OperationsBigScreenLayer({ currentScene, score, badges=[], selectedDeci
       )}
 
       <div className="ops-bottom-actions">
-        <button onClick={()=>onSelectScene?.('S2')}>Hire a Team</button>
-        <button onClick={()=>onSelectScene?.('S7')}>Be the Manager</button>
-        <button className="primary" onClick={()=>onSelectScene?.('S9')}>Hand over to iRun</button>
+        <button onClick={()=>onSelectScene?.('S2')}>HireaTeam</button>
+        <button onClick={()=>onSelectScene?.('S7')}>BetheManager</button>
+        <button className="primary" onClick={()=>onSelectScene?.('S9')}>Handoverto iRun</button>
+        <button onClick={()=>onSelectScene?.('S10')}>ACT</button>
       </div>
     </div>
   );
 }
 
-window.IRUN_UI = { TopBar, EventStream, EventStreamTab, DispatchPanel, DispatchTab, AgentDock, MiniMap, QuickFuncs, AgentModal, AgentsRail, isAgentRailDisabled, RobotAvatar, ModeStrip, SkillModal, PlantTitle, DroneFlight, PlantRobot, PlantAgentField, DispatchedRobots, OverviewDispatchRobot, ScenarioDirectorRail, ManagerDecisionConsole, DigitalTeamOrgPanel, MissionFeedbackLayer, OperationsBigScreenLayer, useClock, fmtTime, fmtDate, fmtDateTime, LangCtx };
+function OperationsActDock({ plants=[], onHireDeploy }) {
+  const l = useLang(); const zh = l !== 'en';
+  const managedCount = plants.filter(p => p.irunManaged || p.enStatus === 'iRun Managed' || p.enStatus === 'Managed').length;
+  const dockAgents = ['alert','order','sched','warn','insp','diag','safe'].map(id => _ABI[id]).filter(Boolean);
+  const load = { alert:28, order:21, sched:20, warn:18, insp:40, diag:50, safe:30 };
+  return (
+    <div className="overview-act-dock">
+      <div className="oad-metrics">
+        <div className="oad-token">
+          <span>{zh?'今日TOKEN消耗':'TODAY TOKEN'}</span>
+          <b>128,450</b>
+          <em>▲ 4.6% · {zh?'同比':'YoY'}</em>
+        </div>
+        <div className="oad-count">
+          <span>{zh?'在线数字员工':'DIGITAL STAFF'}</span>
+          <b>86</b>
+        </div>
+        <div className="oad-count">
+          <span>{zh?'托管电站':'MANAGED SITES'}</span>
+          <b>{Math.max(12, managedCount)}</b>
+        </div>
+      </div>
+      <div className="oad-robots">
+        {dockAgents.map((a, idx) => (
+          <button key={a.id} type="button" className="oad-agent" style={{'--agent-color':_CATS[a.cat].color}}>
+            {a.notif > 0 && <i>{a.notif}</i>}
+            <RobotAvatar agent={a} size={64} glow/>
+            <b>{agentShort(a, zh)}</b>
+            <span>{load[a.id] || (20 + idx * 4)}%</span>
+          </button>
+        ))}
+      </div>
+      <div className="oad-hire-card">
+        <span>{zh?'数字人才市场':'DIGITAL TALENT MARKET'}</span>
+        <b>86</b>
+        <button type="button" onClick={onHireDeploy}>HIRE&DEPLOY</button>
+      </div>
+    </div>
+  );
+}
+
+function TalentMarketOverlay({ onHireDeploy }) {
+  const l = useLang(); const zh = l !== 'en';
+  return (
+    <div className="talent-map-overlay">
+      <div className="talent-map-card training">
+        <span>{zh?'模型回流':'MODEL LOOP'}</span>
+        <b>AI训练中心</b>
+        <em>Policy · Case · Skill</em>
+      </div>
+      <div className="talent-map-card market">
+        <span>{zh?'数字员工':'DIGITAL CREW'}</span>
+        <b>数字人才市场</b>
+        <button type="button" onClick={onHireDeploy}>HIRE&DEPLOY</button>
+      </div>
+    </div>
+  );
+}
+
+const PACKAGE_CARDS = [
+  { id:'basic', kicker:'TEAM PACKAGE 01', title:'Basic O&M Squad', token:'2K-4K / day', text:'Alarm, diagnosis and ticket closure for stable sites.', members:['alert','diag','order'] },
+  { id:'inspect', kicker:'TEAM PACKAGE 02', title:'Inspection-Plus Squad', token:'6K-10K / day', text:'UAV inspection, defect recognition and resource dispatch.', members:['alert','diag','order','insp','sched'] },
+  { id:'full', kicker:'TEAM PACKAGE 03', title:'Full-Managed Squad', token:'12K-18K / day', text:'A full digital team with arbitration, reporting and safety review.', members:['ops','alert','diag','order','sched','safe'] },
+];
+function PackagePicker({ onPick, onClose }) {
+  return (
+    <div className="package-picker">
+      <button type="button" className="package-close" onClick={onClose}>×</button>
+      <div className="package-grid">
+        {PACKAGE_CARDS.map(pack => (
+          <button key={pack.id} type="button" className={`package-card package-${pack.id}`} onClick={()=>onPick?.(pack.id)}>
+            <span>{pack.kicker}</span>
+            <b>{pack.title}</b>
+            <em>{pack.token}</em>
+            <small>{pack.text}</small>
+            <i>
+              {pack.members.map(id => {
+                const a = _ABI[id]; if (!a) return null;
+                return <strong key={id}>{a.code}</strong>;
+              })}
+            </i>
+            <mark>HIRE & DEPLOY</mark>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TalentDeployFlight({ robots=[], onComplete }) {
+  React.useEffect(() => {
+    const maxDelay = robots.reduce((m, r) => Math.max(m, r.delay || 0), 0);
+    const timer = window.setTimeout(() => onComplete?.(), 5400 + maxDelay * 1000);
+    return () => window.clearTimeout(timer);
+  }, [robots?.length]);
+  return (
+    <div className="talent-deploy-flight" aria-hidden="true">
+      <div className="deploy-route"/>
+      {robots.map((r, idx) => {
+        const a = _ABI[r.agentId] || _AGENTS[0];
+        const ox = (idx % 4 - 1.5) * 2.6;
+        const oy = (Math.floor(idx / 4) - 0.5) * 3.2;
+        return (
+          <div
+            key={r.id}
+            className="deploy-bot"
+            style={{
+              '--deploy-delay': `${r.delay || 0}s`,
+              '--orbit-x': `${ox}%`,
+              '--orbit-y': `${oy}%`,
+              '--agent-color': _CATS[a.cat].color,
+            }}
+          >
+            <RobotAvatar agent={a} size={58} glow/>
+            <span>{a.code}</span>
+          </div>
+        );
+      })}
+      <div className="deploy-target-ring"><span>Cebu-N · iRun Managed</span></div>
+    </div>
+  );
+}
+
+function CameraDrillOverlay() {
+  return (
+    <div className="camera-drill">
+      <div className="camera-reticle"/>
+      <span>DRILLING INTO CEBU-N</span>
+    </div>
+  );
+}
+
+window.IRUN_UI = { TopBar, EventStream, EventStreamTab, DispatchPanel, DispatchTab, AgentDock, MiniMap, QuickFuncs, AgentModal, AgentsRail, isAgentRailDisabled, RobotAvatar, ModeStrip, SkillModal, PlantTitle, DroneFlight, PlantRobot, PlantAgentField, DispatchedRobots, OverviewDispatchRobot, ScenarioDirectorRail, ManagerDecisionConsole, DigitalTeamOrgPanel, OperationsActDock, TalentMarketOverlay, PackagePicker, TalentDeployFlight, CameraDrillOverlay, MissionFeedbackLayer, OperationsBigScreenLayer, useClock, fmtTime, fmtDate, fmtDateTime, LangCtx };
 
 // ──────────────────────────────────────────────────────────────────────
 // Collapsed event-stream tab — vertical handle on the left

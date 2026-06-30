@@ -450,12 +450,13 @@ function PlantInlineDock({plant, scenario, stepIdx, cur, busyMap, mode, scenario
 function PIDCardKpi({plant, mode, scenarioIdx, scenario, cur, stepIdx, progress, demoProfile, onModeChange, onScenarioChange}){
   const zh = _useD_Lang() !== 'en';
   const stopProp = e => e.stopPropagation();
-  const isStandard = !demoProfile;
+  const isManaged = plant?.irunManaged || plant?.enStatus === 'iRun Managed';
+  const isStandard = !demoProfile && !isManaged;
   const modeLocked = !!demoProfile || isStandard;
   return (
     <div className="pid-card pid-c-kpi pid-no-open">
       <div className="pid-k-top">
-        <b className="pid-k-name">{zh ? plant.name : (plant.enName || plant.name)}</b>
+        <b className="pid-k-name">{zh ? (plant.name || plant.short) : (plant.enName || plant.name || plant.short)}</b>
         {demoProfile && (
           <button className="pid-k-btn">▶ {zh?'播放':'Play'}</button>
         )}
