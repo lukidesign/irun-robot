@@ -115,6 +115,11 @@ function map2EnergyPath(plant, idx, meta){
   const c2y = Math.min(y - 11, MAP2_TOKEN_SOURCE.y - 1) - meta.lift * 0.35;
   return `M${MAP2_TOKEN_SOURCE.x} ${MAP2_TOKEN_SOURCE.y} C${c1x} ${c1y}, ${c2x} ${c2y}, ${x} ${y}`;
 }
+const MAP2_PATROL_GROUPS = [
+  { path: 1, offsets: [[0,0], [-34,24], [32,28]], delays: [0, -4.2, -8.6] },
+  { path: 2, offsets: [[0,0], [-38,22], [36,25], [2,-30]], delays: [0, -3.7, -8.1, -12.4] },
+  { path: 3, offsets: [[0,0], [-36,22], [34,24]], delays: [0, -4.8, -9.6] },
+];
 function Map2Overlay({ focusId, onFocus, onRobotClick, subMode, tenantId, plants }) {
   const zh = React.useContext(window.IRUN_UI?.LangCtx || React.createContext('zh')) !== 'en';
   const list = plants || window.IRUN?.PLANTS || [];
@@ -155,18 +160,26 @@ function Map2Overlay({ focusId, onFocus, onRobotClick, subMode, tenantId, plants
       )}
       {(subMode === 'show' || subMode === 'pic1' || subMode === 'pic2') && (
         <>
-          <div className="patrol-robot patrol-robot-1" role="button" tabIndex="0" aria-label={zh?'巡检机器人':'Patrol robot'} onClick={onRobotClick} onKeyDown={handleRobotKey}>
-            <div className="patrol-robot-sprite"/>
-            <div className="patrol-robot-shadow"/>
-          </div>
-          <div className="patrol-robot patrol-robot-2" role="button" tabIndex="0" aria-label={zh?'巡检机器人':'Patrol robot'} onClick={onRobotClick} onKeyDown={handleRobotKey}>
-            <div className="patrol-robot-sprite"/>
-            <div className="patrol-robot-shadow"/>
-          </div>
-          <div className="patrol-robot patrol-robot-3" role="button" tabIndex="0" aria-label={zh?'巡检机器人':'Patrol robot'} onClick={onRobotClick} onKeyDown={handleRobotKey}>
-            <div className="patrol-robot-sprite"/>
-            <div className="patrol-robot-shadow"/>
-          </div>
+          {MAP2_PATROL_GROUPS.flatMap(group => group.offsets.map(([x, y], idx) => (
+            <div
+              key={`patrol-${group.path}-${idx}`}
+              className={`patrol-robot patrol-robot-${group.path}`}
+              role="button"
+              tabIndex="0"
+              aria-label={zh?'巡检机器人':'Patrol robot'}
+              style={{
+                '--patrol-offset-x': `${x}px`,
+                '--patrol-offset-y': `${y}px`,
+                '--patrol-delay': `${group.delays[idx] || 0}s`,
+                '--patrol-scale': idx === 0 ? 1 : 0.86,
+              }}
+              onClick={onRobotClick}
+              onKeyDown={handleRobotKey}
+            >
+              <div className="patrol-robot-sprite"/>
+              <div className="patrol-robot-shadow"/>
+            </div>
+          )))}
         </>
       )}
       {visible.map((plant, i) => {

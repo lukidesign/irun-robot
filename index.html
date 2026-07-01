@@ -553,10 +553,10 @@ body{
 .act-switcher{
   position:absolute;left:50%;bottom:28px;z-index:34;pointer-events:auto;
   transform:translateX(-50%);
-  display:flex;align-items:center;gap:18px;
+  display:flex;align-items:center;gap:12px;
 }
 .act-switcher button{
-  width:clamp(132px,8.5vw,172px);height:34px;border:1px solid rgba(34,211,238,0.42);
+  width:clamp(112px,7vw,148px);height:34px;border:1px solid rgba(34,211,238,0.42);
   background:linear-gradient(180deg, rgba(18,38,58,0.48), rgba(6,10,22,0.44));color:rgba(220,245,255,0.88);
   font-family:var(--font-display);font-size:10.5px;letter-spacing:0.08em;
   text-transform:none;cursor:pointer;
@@ -1210,7 +1210,7 @@ body{
 
 .overview-act-dock{
   flex:1;min-width:0;height:100%;
-  display:grid;grid-template-columns:560px minmax(0,1fr) 220px;align-items:stretch;
+  display:grid;grid-template-columns:520px minmax(760px,1fr) 210px;align-items:stretch;
   border:1px solid rgba(120,160,220,0.2);
   background:
     linear-gradient(90deg, rgba(6,10,22,0.88), rgba(6,10,22,0.72)),
@@ -1231,21 +1231,35 @@ body{
 }
 .oad-count b{color:var(--cyan)}
 .oad-token em{font-style:normal;font-family:var(--font-mono);font-size:14px;color:var(--emerald);letter-spacing:0.08em;margin-top:8px}
-.oad-robots{display:flex;align-items:center;justify-content:space-around;gap:10px;padding:8px 18px;min-width:0}
+.oad-robots{
+  position:relative;display:flex;align-items:center;overflow:hidden;
+  padding:8px 14px;min-width:0;
+  mask-image:linear-gradient(90deg, transparent 0%, #000 4%, #000 96%, transparent 100%);
+}
+.oad-robots-track{
+  width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;
+  animation:oad-side-loop 9s ease-in-out infinite alternate;
+}
 .oad-agent{
-  position:relative;width:92px;height:128px;border:0;background:transparent;color:#fff;cursor:pointer;
+  position:relative;width:82px;height:128px;border:0;background:transparent;color:#fff;cursor:pointer;flex:0 0 82px;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
 }
+.oad-agent:hover{transform:translateY(-2px);filter:drop-shadow(0 0 12px var(--agent-color))}
+.oad-agent:focus-visible{outline:1px solid var(--agent-color);outline-offset:2px}
 .oad-agent::after{
-  content:"";position:absolute;left:50%;top:17px;width:78px;height:78px;transform:translateX(-50%);
+  content:"";position:absolute;left:50%;top:17px;width:72px;height:72px;transform:translateX(-50%);
   border:1px solid var(--agent-color);border-radius:50%;opacity:.42;filter:drop-shadow(0 0 9px var(--agent-color));
 }
 .oad-agent i{
-  position:absolute;right:11px;top:4px;z-index:2;min-width:23px;height:23px;border-radius:50%;
+  position:absolute;right:7px;top:4px;z-index:2;min-width:22px;height:22px;border-radius:50%;
   display:grid;place-items:center;background:#fb7185;color:#fff;font:700 12px/1 var(--font-mono);
 }
-.oad-agent b{font-size:17px;line-height:1.1;margin-top:-2px;letter-spacing:0.08em}
-.oad-agent span{font-family:var(--font-mono);font-size:13px;color:var(--text-dim)}
+.oad-agent b{font-size:14px;line-height:1.1;margin-top:-2px;letter-spacing:0.04em;white-space:nowrap}
+.oad-agent span{font-family:var(--font-mono);font-size:12px;color:var(--text-dim)}
+@keyframes oad-side-loop{
+  0%{transform:translateX(-12px)}
+  100%{transform:translateX(12px)}
+}
 .oad-hire-card{
   position:relative;display:flex;flex-direction:column;justify-content:center;gap:7px;padding:16px 18px;
   border-left:1px solid rgba(34,211,238,0.28);
@@ -2014,11 +2028,22 @@ body{
 .package-card small{
   display:block;min-height:58px;font-size:19px;line-height:1.35;color:rgba(210,224,248,0.72);
 }
-.package-card i{display:flex;gap:8px;margin:14px 0 18px;font-style:normal;flex-wrap:wrap}
+.package-card i{display:flex;gap:10px;margin:12px 0 18px;font-style:normal;flex-wrap:wrap;align-items:flex-start}
 .package-card strong{
   min-width:50px;height:34px;display:grid;place-items:center;border:1px solid rgba(34,211,238,0.55);
   color:var(--cyan);font-family:var(--font-display);font-size:17px;font-weight:500;
   background:rgba(34,211,238,0.06);
+}
+.package-card .package-agent-avatar{
+  display:inline-flex;flex-direction:column;align-items:center;justify-content:flex-start;
+  min-width:46px;margin:0;padding:0;color:var(--cyan);letter-spacing:0;
+  font-family:var(--font-mono);font-size:10px;text-transform:none;
+  filter:drop-shadow(0 0 8px color-mix(in srgb, var(--agent-color) 58%, transparent));
+}
+.package-card .package-agent-avatar em{
+  display:block;margin:-7px 0 0;padding:1px 6px;
+  border:1px solid rgba(34,211,238,0.35);background:rgba(5,10,22,0.72);
+  color:#dffbff;font-family:var(--font-mono);font-size:10px;line-height:1.1;letter-spacing:0.04em;
 }
 .package-card mark{
   display:block;background:transparent;color:#fff;font-family:var(--font-display);
@@ -2034,10 +2059,11 @@ body{
   position:absolute;inset:0;z-index:90;
   display:grid;place-items:center;overflow:hidden;
   background:#030710;color:#fff;pointer-events:auto;
+  opacity:1;transition:opacity .56s ease, filter .56s ease;
 }
 .intro-video-el{
   position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
-  background:#030710;
+  background:#030710;transform:scale(1.01);transition:transform .56s ease, opacity .56s ease;
 }
 .intro-gate::after{
   content:"";position:absolute;inset:0;pointer-events:none;
@@ -2054,6 +2080,8 @@ body{
   box-shadow:0 0 18px rgba(34,211,238,0.18);
 }
 .intro-skip:hover{background:rgba(34,211,238,0.16);color:#fff;border-color:var(--cyan)}
+.intro-gate.intro-closing{opacity:0;filter:blur(8px);pointer-events:none}
+.intro-gate.intro-closing .intro-video-el{transform:scale(1.04);opacity:.32}
 .intro-logo-loading{
   position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:22px;
 }
@@ -2143,12 +2171,16 @@ body{
 .patrol-robot{
   position:absolute;
   width:170.6px;height:96px;
-  transform:translate(-50%,-50%);   /* left/top 定位机器人中心 */
+  transform:
+    translate(calc(-50% + var(--patrol-offset-x, 0px)), calc(-50% + var(--patrol-offset-y, 0px)))
+    scale(var(--patrol-scale, 1));   /* left/top 定位机器人中心 */
+  transform-origin:50% 72%;
   pointer-events:auto;
   cursor:pointer;
   z-index:6;
   filter:drop-shadow(0 0 8px rgba(34,211,238,0.6)) drop-shadow(0 0 16px rgba(34,211,238,0.32));
   will-change:left,top,transform;
+  animation-delay:var(--patrol-delay, 0s)!important;
 }
 .patrol-robot:hover,
 .patrol-robot:focus-visible{

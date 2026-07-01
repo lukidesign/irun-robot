@@ -43,10 +43,13 @@ function makeDeployRobots(packageId) {
 function IntroTransition() {
   const [phase, setPhase] = useState('video');
   const [done, setDone] = useState(false);
+  const [closing, setClosing] = useState(false);
   const videoRef = React.useRef(null);
   const settledRef = React.useRef(false);
+  const closingRef = React.useRef(false);
   const fallbackTimerRef = React.useRef(null);
   const loadingTimerRef = React.useRef(null);
+  const finishTimerRef = React.useRef(null);
 
   const finish = useCallback(() => {
     setDone(true);
@@ -55,16 +58,26 @@ function IntroTransition() {
   const clearIntroTimers = useCallback(() => {
     if (fallbackTimerRef.current) window.clearTimeout(fallbackTimerRef.current);
     if (loadingTimerRef.current) window.clearTimeout(loadingTimerRef.current);
+    if (finishTimerRef.current) window.clearTimeout(finishTimerRef.current);
     fallbackTimerRef.current = null;
     loadingTimerRef.current = null;
+    finishTimerRef.current = null;
   }, []);
+
+  const closeSoftly = useCallback(() => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    clearIntroTimers();
+    setClosing(true);
+    finishTimerRef.current = window.setTimeout(finish, 560);
+  }, [clearIntroTimers, finish]);
 
   const showLogoFallback = useCallback(() => {
     if (settledRef.current) return;
     settledRef.current = true;
     setPhase('loading');
-    loadingTimerRef.current = window.setTimeout(finish, 1000);
-  }, [finish]);
+    loadingTimerRef.current = window.setTimeout(closeSoftly, 1000);
+  }, [closeSoftly]);
 
   const handleVideoReady = useCallback(() => {
     if (settledRef.current) return;
@@ -77,17 +90,22 @@ function IntroTransition() {
     if (playResult && typeof playResult.catch === 'function') {
       playResult.catch(() => {
         setPhase('loading');
-        loadingTimerRef.current = window.setTimeout(finish, 1000);
+        loadingTimerRef.current = window.setTimeout(closeSoftly, 1000);
       });
     }
-  }, [finish]);
+  }, [closeSoftly]);
 
   const skipIntro = useCallback(() => {
-    clearIntroTimers();
     const video = videoRef.current;
     if (video) video.pause();
-    finish();
-  }, [clearIntroTimers, finish]);
+    closeSoftly();
+  }, [closeSoftly]);
+
+  const handleVideoProgress = useCallback(() => {
+    const video = videoRef.current;
+    if (!video?.duration || !Number.isFinite(video.duration)) return;
+    if (video.duration - video.currentTime <= 0.42) closeSoftly();
+  }, [closeSoftly]);
 
   useEffect(() => {
     fallbackTimerRef.current = window.setTimeout(showLogoFallback, 2000);
@@ -97,7 +115,7 @@ function IntroTransition() {
   if (done) return null;
 
   return (
-    <div className={`intro-gate intro-${phase}`}>
+    <div className={`intro-gate intro-${phase}${closing ? ' intro-closing' : ''}`}>
       {phase === 'video' ? (
         <video
           ref={videoRef}
@@ -109,7 +127,8 @@ function IntroTransition() {
           preload="metadata"
           onCanPlay={handleVideoReady}
           onLoadedData={handleVideoReady}
-          onEnded={finish}
+          onTimeUpdate={handleVideoProgress}
+          onEnded={closeSoftly}
           onError={showLogoFallback}
         />
       ) : (
@@ -119,7 +138,7 @@ function IntroTransition() {
         </div>
       )}
       {phase === 'video' && (
-        <button type="button" className="intro-skip" onClick={skipIntro}>跳过</button>
+        <button type="button" className="intro-skip" onClick={skipIntro}>Skip</button>
       )}
     </div>
   );
@@ -742,6 +761,8 @@ function App(){
           <button type="button">BetheManager</button>
           <button type="button">Handoverto iRun</button>
           <button type="button" className={actDockOpen ? 'active' : ''} onClick={()=>setActDockOpen(v=>!v)}>ACT</button>
+          <button type="button">ACT ONE</button>
+          <button type="button">ACT TWO</button>
         </div>
       )}
 
@@ -836,7 +857,7 @@ function App(){
                 selectedDecision={simDecisionId}
                 onOpen={setOpenAgent}/>
             : (viewMode === 'map2'
-            ? <OperationsActDock plants={plants} onHireDeploy={openHireDeploy}/>
+            ? <OperationsActDock plants={plants} onHireDeploy={openHireDeploy} onOpenAgent={setOpenAgent}/>
             : <PlantInlineDock
                 plant={focusPlant}
                 scenario={scenario}

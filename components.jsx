@@ -3141,11 +3141,12 @@ function OperationsBigScreenLayer({ currentScene, score, badges=[], selectedDeci
   );
 }
 
-function OperationsActDock({ plants=[], onHireDeploy }) {
+function OperationsActDock({ plants=[], onHireDeploy, onOpenAgent }) {
   const l = useLang(); const zh = l !== 'en';
   const managedCount = plants.filter(p => p.irunManaged || p.enStatus === 'iRun Managed' || p.enStatus === 'Managed').length;
-  const dockAgents = ['alert','order','sched','warn','insp','diag','safe'].map(id => _ABI[id]).filter(Boolean);
-  const load = { alert:28, order:21, sched:20, warn:18, insp:40, diag:50, safe:30 };
+  const dockAgents = ['alert','order','sched','warn','insp','diag','safe','pv','query','ops'].map(id => _ABI[id]).filter(Boolean);
+  const load = { alert:28, order:21, sched:20, warn:18, insp:40, diag:50, safe:30, pv:24, query:33, ops:46 };
+  const loopAgents = dockAgents;
   return (
     <div className="overview-act-dock">
       <div className="oad-metrics">
@@ -3164,14 +3165,22 @@ function OperationsActDock({ plants=[], onHireDeploy }) {
         </div>
       </div>
       <div className="oad-robots">
-        {dockAgents.map((a, idx) => (
-          <button key={a.id} type="button" className="oad-agent" style={{'--agent-color':_CATS[a.cat].color}}>
-            {a.notif > 0 && <i>{a.notif}</i>}
-            <RobotAvatar agent={a} size={64} glow/>
-            <b>{agentShort(a, zh)}</b>
-            <span>{load[a.id] || (20 + idx * 4)}%</span>
-          </button>
-        ))}
+        <div className="oad-robots-track">
+          {loopAgents.map((a, idx) => (
+            <button
+              key={`${a.id}-${idx}`}
+              type="button"
+              className="oad-agent"
+              style={{'--agent-color':_CATS[a.cat].color}}
+              onClick={()=>onOpenAgent?.(a.id)}
+            >
+              {a.notif > 0 && <i>{a.notif}</i>}
+              <RobotAvatar agent={a} size={64} glow/>
+              <b>{agentShort(a, zh)}</b>
+              <span>{load[a.id] || (20 + idx * 4)}%</span>
+            </button>
+          ))}
+        </div>
       </div>
       <div className="oad-hire-card">
         <span>{zh?'数字人才市场':'DIGITAL TALENT MARKET'}</span>
@@ -3224,7 +3233,12 @@ function PackagePicker({ onPick, onClose }) {
             <i>
               {pack.members.map(id => {
                 const a = _ABI[id]; if (!a) return null;
-                return <strong key={id}>{a.code}</strong>;
+                return (
+                  <span key={id} className="package-agent-avatar" style={{'--agent-color':_CATS[a.cat].color}} title={agentName(a, false)}>
+                    <RobotAvatar agent={a} size={40} glow/>
+                    <em>{a.code}</em>
+                  </span>
+                );
               })}
             </i>
             <mark>HIRE & DEPLOY</mark>
