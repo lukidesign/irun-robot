@@ -3132,9 +3132,9 @@ function OperationsBigScreenLayer({ currentScene, score, badges=[], selectedDeci
       )}
 
       <div className="ops-bottom-actions">
-        <button onClick={()=>onSelectScene?.('S2')}>HireaTeam</button>
-        <button onClick={()=>onSelectScene?.('S7')}>BetheManager</button>
-        <button className="primary" onClick={()=>onSelectScene?.('S9')}>Handoverto iRun</button>
+        <button onClick={()=>onSelectScene?.('S2')}>Hire a Team</button>
+        <button onClick={()=>onSelectScene?.('S7')}>Be the Manager</button>
+        <button className="primary" onClick={()=>onSelectScene?.('S9')}>Hand over to iRun</button>
         <button onClick={()=>onSelectScene?.('S10')}>ACT</button>
       </div>
     </div>

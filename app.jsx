@@ -160,7 +160,7 @@ function IntroTransition() {
     closingRef.current = true;
     clearIntroTimers();
     setClosing(true);
-    finishTimerRef.current = window.setTimeout(finish, 560);
+    finishTimerRef.current = window.setTimeout(finish, 820);
   }, [clearIntroTimers, finish]);
 
   const showLogoFallback = useCallback(() => {
@@ -911,9 +911,9 @@ function App(){
       )}
       {!simulatorEnabled && viewMode === 'map2' && (
         <div className="act-switcher" aria-label="Act navigation">
-          <button type="button" onClick={startOverviewHireAct}>HireaTeam</button>
-          <button type="button" onClick={openManagerPlant}>BetheManager</button>
-          <button type="button" onClick={startHandoverAct}>Handoverto iRun</button>
+          <button type="button" onClick={startOverviewHireAct}>Hire a Team</button>
+          <button type="button" onClick={openManagerPlant}>Be the Manager</button>
+          <button type="button" onClick={startHandoverAct}>Hand over to iRun</button>
           <button type="button" className={actDockOpen ? 'active' : ''} onClick={()=>setActDockOpen(v=>!v)}>ACT</button>
           <button type="button">ACT ONE</button>
           <button type="button">ACT TWO</button>
