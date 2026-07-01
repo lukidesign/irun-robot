@@ -1,7 +1,7 @@
 // iRun Workbench — App root
 const { useState: _aUseState, useEffect: _aUseEffect, useCallback: _aUseCallback } = React;
 const useState = _aUseState, useEffect = _aUseEffect, useCallback = _aUseCallback;
-const { TopBar, EventStream, EventStreamTab, DispatchPanel, DispatchTab, AgentDock, MiniMap, QuickFuncs, AgentModal, AgentsRail, ModeStrip, SkillModal, PlantTitle, DroneFlight, PlantRobot, PlantAgentField, DispatchedRobots, OverviewDispatchRobot, ScenarioDirectorRail, ManagerDecisionConsole, DigitalTeamOrgPanel, OperationsActDock, TalentMarketOverlay, PackagePicker, TalentDeployFlight, CameraDrillOverlay, MissionFeedbackLayer, OperationsBigScreenLayer, LangCtx } = window.IRUN_UI;
+const { TopBar, EventStream, EventStreamTab, DispatchPanel, DispatchTab, AgentDock, MiniMap, QuickFuncs, AgentModal, AgentsRail, ModeStrip, SkillModal, PlantTitle, DroneFlight, PlantRobot, PlantAgentField, DispatchedRobots, OverviewDispatchRobot, ScenarioDirectorRail, ManagerDecisionConsole, DigitalTeamOrgPanel, OperationsActDock, TalentMarketOverlay, PackagePicker, TalentDeployFlight, CameraDrillOverlay, MissionFeedbackLayer, OperationsBigScreenLayer, TrainingCenterModal, LangCtx } = window.IRUN_UI;
 const { PlantsMap, Map2Overlay } = window.IRUN_MAP;
 const { PlantDetail, PlantInlineDock, useScenarioStepping } = window.IRUN_DETAIL;
 const { Scene3D } = window.IRUN_SCENE3D;
@@ -21,6 +21,23 @@ const DEPLOY_PACKAGE_MEMBERS = {
   inspect: ['alert','diag','order','insp','sched','safe','ops'],
   full: ['ops','alert','diag','order','sched','safe','insp','pv'],
 };
+const MANAGER_FIELD_POSITIONS = [
+  { agent:'alert', x:23, y:38 }, { agent:'diag', x:37, y:62 }, { agent:'order', x:58, y:42 },
+  { agent:'sched', x:70, y:58 }, { agent:'safe', x:82, y:40 }, { agent:'insp', x:48, y:76 },
+  { agent:'pv', x:28, y:72 }, { agent:'query', x:63, y:78 }, { agent:'ops', x:50, y:26 },
+];
+const OVERVIEW_COPY = {
+  handover: [
+    'AI is not atool. It’s a colleague.',
+    'Token , going overseas — a 24/7 digital O&M team for every ASEAN plant.'
+  ],
+  hire: [
+    'Hire your digital O&M team.',
+    'You’re not buying software— you’re hiring a team.',
+    'Algorithmic energy for 86 digital employees across ASEAN.'
+  ],
+  manager: [' A digital work force , on duty 24/7 '],
+};
 
 function clampSimScore(n) {
   return Math.max(0, Math.min(100, Math.round(Number(n) || 0)));
@@ -38,6 +55,80 @@ function makeDeployRobots(packageId) {
     delay: idx * 0.13,
     orbit: idx,
   }));
+}
+
+function TypewriterNarrative({ narrative, onDone }) {
+  const [count, setCount] = useState(0);
+  const doneRef = React.useRef(false);
+  const text = (narrative?.lines || []).join('\n');
+  const duration = narrative?.duration || 3000;
+
+  useEffect(() => {
+    setCount(0);
+    doneRef.current = false;
+    if (!text) return;
+    const started = Date.now();
+    const timer = window.setInterval(() => {
+      const pct = Math.min(1, (Date.now() - started) / duration);
+      const next = Math.ceil(text.length * pct);
+      setCount(next);
+      if (pct >= 1) {
+        window.clearInterval(timer);
+        if (!doneRef.current) {
+          doneRef.current = true;
+          window.setTimeout(() => onDone?.(narrative), 260);
+        }
+      }
+    }, 28);
+    return () => window.clearInterval(timer);
+  }, [text, duration, narrative?.id]);
+
+  if (!narrative) return null;
+  return (
+    <div className={`overview-narrative ${narrative.kind || ''}`}>
+      <div className="overview-narrative-text">{text.slice(0, count)}<span/></div>
+    </div>
+  );
+}
+
+function ManagerAlarmLayer({ active, alarmStage, showSummary, onTrigger, onSimulate, onMarkerClick, onCloseSummary }) {
+  if (!active) return null;
+  const armed = alarmStage === 'armed' || alarmStage === 'simulated';
+  return (
+    <div className={`manager-alarm-layer stage-${alarmStage || 'idle'}`}>
+      <button type="button" className="manager-alarm-trigger" onClick={onTrigger}>告警触发按钮</button>
+      {armed && (
+        <>
+          <button type="button" className="manager-alarm-marker" onClick={onMarkerClick} aria-label="Alarm marker">
+            <i/>
+          </button>
+          <div className="manager-task-card">
+            <span>ALT · TASK CARD</span>
+            <b>组串电流离散率告警</b>
+            <p>该组串电流较同汇流箱内其他组串均值偏低约18%。</p>
+            <button type="button" onClick={onSimulate}>SimulateAlarm</button>
+          </div>
+          <div className="manager-event-stream">
+            <span>REALTIME EVENT STREAM</span>
+            <p className={alarmStage === 'simulated' ? 'fresh' : ''}>13:18:08 · 告警智能体接管 · String current dispersion warning</p>
+            {alarmStage === 'simulated' && (
+              <>
+                <p className="fresh">13:18:11 · 组串电流离散率告警。该组串电流较同汇流箱内其他组串均值偏低约18%。</p>
+                <p className="fresh">13:18:14 · 已生成研判摘要 · 非误报 / 趋势性劣化</p>
+              </>
+            )}
+          </div>
+        </>
+      )}
+      {showSummary && (
+        <div className="manager-alarm-summary">
+          <button type="button" onClick={onCloseSummary}>×</button>
+          <span>告警智能体初判</span>
+          <p>排除辐照波动/云遮后，判定为非误报、趋势性劣化，建议升级诊断。</p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function IntroTransition() {
@@ -223,6 +314,7 @@ function App(){
   // Plants visible under the current tenant
   const tenantPlants = plants.filter(p => p.tenant === tenant.id);
   const tenantAgg = APP_AGG_OF ? APP_AGG_OF(tenantPlants) : { plants: tenantPlants.length, capacity:0, power:0, gen:0, alerts:0, risk:0 };
+  const defaultDeployPlant = tenantPlants.find(p => p.enStatus === 'Untended' || p.status === 'Untended') || tenantPlants[0] || plants[0];
 
   const handlePlantChange = useCallback((id) => {
     if (!dispatchCollapsed) {
@@ -279,6 +371,12 @@ function App(){
   const [packagePickerOpen, setPackagePickerOpen] = useState(false);
   const [deployRun, setDeployRun] = useState(null);
   const [drillActive, setDrillActive] = useState(false);
+  const [overviewNarrative, setOverviewNarrative] = useState(null);
+  const [managerDemoActive, setManagerDemoActive] = useState(false);
+  const [managerDemoPlantId, setManagerDemoPlantId] = useState(null);
+  const [alarmStage, setAlarmStage] = useState('idle');
+  const [alarmSummaryOpen, setAlarmSummaryOpen] = useState(false);
+  const [trainingCenterOpen, setTrainingCenterOpen] = useState(false);
   // Clear robots + busyMap on mode switch / plant leave
   useEffect(()=>{
     if (mode === 'command') { setBusyMap({}); }
@@ -549,15 +647,15 @@ function App(){
     setActDockOpen(false);
   }, []);
 
-  const markCebuManaged = useCallback((robots) => {
-    const robotIds = robots.map(r => r.agentId);
+  const markPlantManaged = useCallback((targetPlantId, robots, options={}) => {
+    const robotIds = robots.map(r => r.agentId).filter(Boolean);
     const field = robotIds.map((agentId, idx) => ({
       agent: agentId,
       x: DEPLOY_FIELD_POSITIONS[idx % DEPLOY_FIELD_POSITIONS.length].x,
       y: DEPLOY_FIELD_POSITIONS[idx % DEPLOY_FIELD_POSITIONS.length].y,
     }));
     setPlants(prev => {
-      const next = prev.map(p => String(p.id) === CEBU_PLANT_ID ? ({
+      const next = prev.map(p => String(p.id) === String(targetPlantId) ? ({
         ...p,
         status: 'iRun Managed',
         enStatus: 'iRun Managed',
@@ -566,8 +664,8 @@ function App(){
         alerts: 0,
         alarmStatus: 'normal',
         tags: [],
-        agents: Array.from(new Set([...(p.agents || []), ...robotIds])),
-        robotField: field,
+        agents: Array.from(new Set([...(p.agents || []), ...robotIds, ...(options.extraAgents || [])])),
+        robotField: options.robotField || field,
         defaultScenarioIdx: 0,
       }) : p);
       if (window.IRUN) window.IRUN.PLANTS = next;
@@ -575,28 +673,74 @@ function App(){
     });
   }, []);
 
-  const startHireDeploy = useCallback((packageId) => {
+  const startHireDeploy = useCallback((packageId, targetPlantId) => {
+    const plantId = targetPlantId || defaultDeployPlant?.id || CEBU_PLANT_ID;
     const robots = makeDeployRobots(packageId);
+    const targetPlant = plants.find(p => String(p.id) === String(plantId)) || defaultDeployPlant;
     setPackagePickerOpen(false);
     setActDockOpen(false);
-    markCebuManaged(robots);
-    setDeployRun({ id: `run-${Date.now()}`, packageId, robots });
-  }, [markCebuManaged]);
+    setManagerDemoActive(false);
+    setManagerDemoPlantId(null);
+    markPlantManaged(plantId, robots);
+    setDeployRun({ id: `run-${Date.now()}`, packageId, robots, targetPlantId: plantId, targetPlant });
+  }, [defaultDeployPlant?.id, plants, markPlantManaged]);
 
-  const finishHireDeploy = useCallback(() => {
+  const finishHireDeploy = useCallback((targetPlantId) => {
     setDrillActive(true);
     window.setTimeout(() => {
       setDeployRun(null);
       setDrillActive(false);
       setDispatchPlantCtx(null);
-      setFocusId(CEBU_PLANT_ID);
+      setFocusId(targetPlantId || CEBU_PLANT_ID);
       setViewMode('img2');
       setMode('auto');
       setScenarioIdx(0);
     }, 920);
   }, []);
 
+  const openManagerPlant = useCallback(() => {
+    const target = defaultDeployPlant || tenantPlants[0] || plants[0];
+    if (!target) return;
+    const managerAgents = MANAGER_FIELD_POSITIONS.map(r => r.agent);
+    markPlantManaged(target.id, managerAgents.map((agentId, idx) => ({ id:`manager-${idx}`, agentId })), {
+      extraAgents: managerAgents,
+      robotField: MANAGER_FIELD_POSITIONS,
+    });
+    setManagerDemoActive(true);
+    setManagerDemoPlantId(target.id);
+    setAlarmStage('idle');
+    setAlarmSummaryOpen(false);
+    setPackagePickerOpen(false);
+    setActDockOpen(false);
+    setDeployRun(null);
+    setDispatchPlantCtx(null);
+    setFocusId(target.id);
+    setViewMode('img2');
+    setMode('auto');
+    setScenarioIdx(0);
+    setOverviewNarrative({ id:`manager-${Date.now()}`, kind:'manager', lines:OVERVIEW_COPY.manager, duration:2000 });
+  }, [defaultDeployPlant?.id, tenantPlants, plants, markPlantManaged]);
+
+  const handleNarrativeDone = useCallback((narrative) => {
+    if (narrative?.kind === 'handover') setActDockOpen(true);
+    if (narrative?.kind === 'hire') startHireDeploy('basic', defaultDeployPlant?.id);
+    window.setTimeout(() => setOverviewNarrative(null), 900);
+  }, [defaultDeployPlant?.id, startHireDeploy]);
+
+  const startOverviewHireAct = useCallback(() => {
+    setActDockOpen(false);
+    setPackagePickerOpen(false);
+    setOverviewNarrative({ id:`hire-${Date.now()}`, kind:'hire', lines:OVERVIEW_COPY.hire, duration:5000 });
+  }, []);
+
+  const startHandoverAct = useCallback(() => {
+    setActDockOpen(false);
+    setPackagePickerOpen(false);
+    setOverviewNarrative({ id:`handover-${Date.now()}`, kind:'handover', lines:OVERVIEW_COPY.handover, duration:4000 });
+  }, []);
+
   const showBottomDock = simulatorEnabled || (viewMode === 'img2' && focusPlant) || (!simulatorEnabled && viewMode === 'map2' && actDockOpen);
+  const managerDemoVisible = managerDemoActive && !!focusPlant && String(focusPlant.id) === String(managerDemoPlantId);
 
   return (
     <LangCtx.Provider value={lang}>
@@ -723,17 +867,27 @@ function App(){
       <TopBar focusPlant={focusPlant} plants={tenantPlants} agg={tenantAgg} onPlantChange={handlePlantChange} tenant={tenant} tenantIdx={tenantIdx} onTenant={onTenantChange} onBack={()=>setFocusId(null)} lang={lang} onLang={toggleLang} theme={theme} onTheme={toggleTheme} simulator={simulatorState} agentsRailVisible={agentsRailVisible} onAgentsRailToggle={()=>setAgentsRailVisible(v=>!v)}/>
 
       <IntroTransition/>
+      <TypewriterNarrative narrative={overviewNarrative} onDone={handleNarrativeDone}/>
 
       {!simulatorEnabled && viewMode === 'map2' && (
-        <TalentMarketOverlay onHireDeploy={openHireDeploy}/>
+        <TalentMarketOverlay onHireDeploy={openHireDeploy} onTrainingClick={()=>setTrainingCenterOpen(true)}/>
       )}
       {packagePickerOpen && (
-        <PackagePicker onPick={startHireDeploy} onClose={()=>setPackagePickerOpen(false)}/>
+        <PackagePicker
+          plants={tenantPlants}
+          defaultPlantId={defaultDeployPlant?.id}
+          onPick={startHireDeploy}
+          onClose={()=>setPackagePickerOpen(false)}/>
       )}
       {deployRun && (
-        <TalentDeployFlight key={deployRun.id} robots={deployRun.robots} onComplete={finishHireDeploy}/>
+        <TalentDeployFlight
+          key={deployRun.id}
+          robots={deployRun.robots}
+          targetPlant={deployRun.targetPlant}
+          onComplete={()=>finishHireDeploy(deployRun.targetPlantId)}/>
       )}
-      {drillActive && <CameraDrillOverlay/>}
+      {drillActive && <CameraDrillOverlay targetPlant={deployRun?.targetPlant}/>}
+      {trainingCenterOpen && <TrainingCenterModal onClose={()=>setTrainingCenterOpen(false)}/>}
 
       {simulatorEnabled && (
         <MissionFeedbackLayer
@@ -757,9 +911,9 @@ function App(){
       )}
       {!simulatorEnabled && viewMode === 'map2' && (
         <div className="act-switcher" aria-label="Act navigation">
-          <button type="button" onClick={openHireDeploy}>HireaTeam</button>
-          <button type="button">BetheManager</button>
-          <button type="button">Handoverto iRun</button>
+          <button type="button" onClick={startOverviewHireAct}>HireaTeam</button>
+          <button type="button" onClick={openManagerPlant}>BetheManager</button>
+          <button type="button" onClick={startHandoverAct}>Handoverto iRun</button>
           <button type="button" className={actDockOpen ? 'active' : ''} onClick={()=>setActDockOpen(v=>!v)}>ACT</button>
           <button type="button">ACT ONE</button>
           <button type="button">ACT TWO</button>
@@ -845,6 +999,20 @@ function App(){
             ? <PlantAgentField plant={focusPlant} busyMap={busyMap} cur={cur}/>
             : <PlantRobot/>
       )}
+      <ManagerAlarmLayer
+        active={managerDemoVisible && viewMode === 'img2'}
+        alarmStage={alarmStage}
+        showSummary={alarmSummaryOpen}
+        onTrigger={()=>{
+          setAlarmStage('armed');
+          setBusyMap({ alert:true });
+        }}
+        onSimulate={()=>{
+          setAlarmStage('simulated');
+          setBusyMap({ alert:true, diag:true, order:true });
+        }}
+        onMarkerClick={()=>setAlarmSummaryOpen(true)}
+        onCloseSummary={()=>setAlarmSummaryOpen(false)}/>
 
 
       {showBottomDock && (
@@ -864,6 +1032,7 @@ function App(){
                 stepIdx={stepIdx}
                 cur={cur}
                 busyMap={busyMap}
+                managerDemo={managerDemoVisible}
                 mode={mode}
                 scenarioIdx={scenarioIdx}
                 onModeChange={handleModeChange}

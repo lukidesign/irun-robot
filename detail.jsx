@@ -407,9 +407,54 @@ function TokenStrip({plant, stepIdx}){
   );
 }
 
+function PlantManagerDock({ plant }) {
+  const zh = _useD_Lang() !== 'en';
+  const RobotAvatar = window.IRUN_UI?.RobotAvatar;
+  const managerIds = ['alert','diag','order','sched','insp','safe','pv','query','ops','warn'];
+  return (
+    <div className="manager-plant-dock">
+      <section className="mpd-status">
+        <span>{zh?'电站状态栏':'PLANT STATUS'}</span>
+        <b>{plant?.short || plant?.enName || plant?.name} · iRun Managed</b>
+        <div className="mpd-status-line"><i/><i/><i/></div>
+        <em>{zh?'现场活着 · 数字员工在线协同':'Live field · digital workforce online'}</em>
+      </section>
+      <section className="mpd-facts">
+        <span>{zh?'电站基础（拟真）':'PLANT BASELINE'}</span>
+        <p>装机100MWp；组件约18万块；组串约6,000条；组串式逆变器若干百台；当日PR82.1%、可利用率99.4%、日发电量约40万kWh。</p>
+      </section>
+      <section className="mpd-workforce">
+        <span>{zh?'数字员工在岗':'DIGITAL WORKFORCE'}</span>
+        <p>各智能体小人分布在对应岗位（监控台、设备区、机巢、调度台），是会走动、有状态光圈的同事</p>
+        <div className="mpd-agents">
+          {managerIds.map((id, idx) => {
+            const ag = _D_ABI[id];
+            if (!ag) return null;
+            const cat = _D_CAT[ag.cat];
+            return (
+              <div key={id} className="mpd-agent" style={{'--cat-color':cat.color, '--delay':`${idx * 0.12}s`}}>
+                {RobotAvatar ? <RobotAvatar agent={ag} size={42} glow/> : <b>{ag.code}</b>}
+                <small>{zh ? ag.short : ag.en}</small>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+      <section className="mpd-flow">
+        <span>{zh?'任务流':'TASK FLOW'}</span>
+        <div className="mpd-bubbles">
+          {['Alarm', 'Diagnose', 'Ticket', 'Dispatch', 'Review'].map((label, idx) => <i key={label} style={{'--i':idx}}>{label}</i>)}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // PlantInlineDock — inline 6-card dashboard for img2 mode (replaces popup)
-function PlantInlineDock({plant, scenario, stepIdx, cur, busyMap, mode, scenarioIdx, onModeChange, onScenarioChange}){
+function PlantInlineDock({plant, scenario, stepIdx, cur, busyMap, managerDemo, mode, scenarioIdx, onModeChange, onScenarioChange}){
+  if (managerDemo) return <PlantManagerDock plant={plant}/>;
+
   const steps = scenario.steps || [];
   const lastT = steps.length ? steps[steps.length - 1].t : 0;
   const totalDur = lastT + 1500;
@@ -462,6 +507,7 @@ function PIDCardKpi({plant, mode, scenarioIdx, scenario, cur, stepIdx, progress,
         )}
       </div>
       <div className="pid-k-sub">{zh ? plant.region : (plant.enRegion || plant.region)} · {plant.capacity} MW · {zh?'实时功率':'Live'} {plant.power} MW</div>
+      {isManaged && <div className="pid-k-managed">iRun Managed</div>}
       <div className="pid-k-stats">
         <div className="s"><span className="l">{zh?'日发电':"Today's Gen"}</span><span className="v">{plant.gen}<small>MWh</small></span></div>
         <div className="s"><span className="l">{zh?'告警':'Alerts'}</span><span className="v" style={{color: plant.alerts>4?'var(--rose)':'#fff'}}>{plant.alerts}</span></div>

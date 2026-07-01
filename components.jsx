@@ -3191,19 +3191,54 @@ function OperationsActDock({ plants=[], onHireDeploy, onOpenAgent }) {
   );
 }
 
-function TalentMarketOverlay({ onHireDeploy }) {
+function TalentMarketOverlay({ onHireDeploy, onTrainingClick }) {
   const l = useLang(); const zh = l !== 'en';
   return (
     <div className="talent-map-overlay">
-      <div className="talent-map-card training">
+      <button type="button" className="talent-map-card training" onClick={onTrainingClick}>
         <span>{zh?'模型回流':'MODEL LOOP'}</span>
         <b>AI训练中心</b>
         <em>Policy · Case · Skill</em>
-      </div>
+      </button>
       <div className="talent-map-card market">
         <span>{zh?'数字员工':'DIGITAL CREW'}</span>
         <b>数字人才市场</b>
         <button type="button" onClick={onHireDeploy}>HIRE&DEPLOY</button>
+      </div>
+    </div>
+  );
+}
+
+function TrainingCenterModal({ onClose }) {
+  const l = useLang(); const zh = l !== 'en';
+  React.useEffect(() => {
+    const onKey = e => { if (e.key === 'Escape') onClose?.(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  const loops = [
+    ['POLICY LOOP', zh?'把经理决策沉淀为可复用策略。':'Turns manager decisions into reusable policies.'],
+    ['CASE MEMORY', zh?'把告警、诊断、工单闭环写入案例库。':'Stores alarm, diagnosis and ticket closure as cases.'],
+    ['SKILL ROUTER', zh?'把新技能分发给各电站数字员工。':'Routes new skills to digital staff across plants.'],
+  ];
+  return (
+    <div className="training-center-modal" onMouseDown={(e)=>{ if (e.target === e.currentTarget) onClose?.(); }}>
+      <div className="training-center-panel" onMouseDown={e=>e.stopPropagation()}>
+        <button type="button" className="training-close" onClick={onClose}>×</button>
+        <span>MODEL LOOP · AI TRAINING CENTER</span>
+        <b>{zh?'AI训练中心':'AI Training Center'}</b>
+        <p>{zh
+          ? '训练中心把 ASEAN 电站的实时工况、经理选择、机器人执行结果回流成策略、案例与技能，让每一次托管都能让团队更聪明。'
+          : 'The training center converts ASEAN plant telemetry, manager choices, and agent outcomes into policies, cases, and skills so every managed shift improves the team.'}</p>
+        <div className="training-loop-grid">
+          {loops.map(item => (
+            <div key={item[0]} className="training-loop-card">
+              <i/>
+              <strong>{item[0]}</strong>
+              <small>{item[1]}</small>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -3214,23 +3249,82 @@ const PACKAGE_CARDS = [
   { id:'inspect', kicker:'TEAM PACKAGE 02', title:'Inspection-Plus Squad', token:'6K-10K / day', text:'UAV inspection, defect recognition and resource dispatch.', members:['alert','diag','order','insp','sched'] },
   { id:'full', kicker:'TEAM PACKAGE 03', title:'Full-Managed Squad', token:'12K-18K / day', text:'A full digital team with arbitration, reporting and safety review.', members:['ops','alert','diag','order','sched','safe'] },
 ];
-function PackagePicker({ onPick, onClose }) {
+function TeamPackageDetail({ pack, onClose }) {
+  const l = useLang(); const zh = l !== 'en';
+  const team = (pack?.members || []).map(id => _ABI[id]).filter(Boolean);
+  return (
+    <div className="package-team-detail">
+      <div className="ptd-head">
+        <span>{pack?.kicker}</span>
+        <b>{zh?'团队明细':'Team Detail'}</b>
+        <button type="button" onClick={onClose}>×</button>
+      </div>
+      <div className="ptd-track">
+        {team.map((a, idx) => {
+          const cat = _CATS[a.cat];
+          return (
+            <article key={a.id} className="ptd-agent" style={{'--agent-color':cat.color}}>
+              <RobotAvatar agent={a} size={54} glow/>
+              <div>
+                <strong>{agentName(a, zh)}</strong>
+                <span>{agentRole(a, zh)}</span>
+                <p>{agentIntro(a, zh)}</p>
+                <div className="ptd-skills">
+                  {(a.skills || []).slice(0, 3).map((s, i) => <em key={s}>{agentSkill(a, i, zh)}</em>)}
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function PackagePicker({ plants=[], defaultPlantId, onPick, onClose }) {
+  const l = useLang(); const zh = l !== 'en';
+  const [selectedPlantId, setSelectedPlantId] = React.useState(defaultPlantId || plants[0]?.id || '');
+  const [teamPack, setTeamPack] = React.useState(null);
   React.useEffect(() => {
     const onKey = e => { if (e.key === 'Escape') onClose?.(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
+  React.useEffect(() => {
+    if (!selectedPlantId && (defaultPlantId || plants[0]?.id)) setSelectedPlantId(defaultPlantId || plants[0]?.id);
+  }, [defaultPlantId, plants?.length, selectedPlantId]);
+  const pickPack = (pack) => onPick?.(pack.id, selectedPlantId || plants[0]?.id);
   return (
     <div className="package-picker" onMouseDown={(e)=>{ if (e.target === e.currentTarget) onClose?.(); }}>
       <button type="button" className="package-close" onClick={onClose}>×</button>
-      <div className="package-grid" onMouseDown={e=>e.stopPropagation()}>
+      <div className="package-shell" onMouseDown={e=>e.stopPropagation()}>
+        <div className="package-target-row">
+          <span>{zh?'目标电站':'TARGET PLANT'}</span>
+          <select value={selectedPlantId} onChange={e=>setSelectedPlantId(e.target.value)}>
+            {plants.map(p => (
+              <option key={p.id} value={p.id}>{p.short || p.enName || p.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="package-grid">
         {PACKAGE_CARDS.map(pack => (
-          <button key={pack.id} type="button" className={`package-card package-${pack.id}`} onClick={()=>onPick?.(pack.id)}>
+          <div
+            key={pack.id}
+            role="button"
+            tabIndex={0}
+            className={`package-card package-${pack.id}`}
+            onClick={()=>pickPack(pack)}
+            onKeyDown={(e)=>{ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickPack(pack); } }}
+          >
             <span>{pack.kicker}</span>
             <b>{pack.title}</b>
             <em>{pack.token}</em>
             <small>{pack.text}</small>
-            <i>
+            <button
+              type="button"
+              className="package-members"
+              onClick={(e)=>{ e.stopPropagation(); setTeamPack(pack); }}
+            >
               {pack.members.map(id => {
                 const a = _ABI[id]; if (!a) return null;
                 return (
@@ -3240,23 +3334,28 @@ function PackagePicker({ onPick, onClose }) {
                   </span>
                 );
               })}
-            </i>
+            </button>
             <mark>HIRE & DEPLOY</mark>
-          </button>
+          </div>
         ))}
+        </div>
+        {teamPack && <TeamPackageDetail pack={teamPack} onClose={()=>setTeamPack(null)}/>}
       </div>
     </div>
   );
 }
 
-function TalentDeployFlight({ robots=[], onComplete }) {
+function TalentDeployFlight({ robots=[], targetPlant, onComplete }) {
   React.useEffect(() => {
     const maxDelay = robots.reduce((m, r) => Math.max(m, r.delay || 0), 0);
     const timer = window.setTimeout(() => onComplete?.(), 5400 + maxDelay * 1000);
     return () => window.clearTimeout(timer);
   }, [robots?.length]);
+  const targetX = Math.max(8, Math.min(92, Number(targetPlant?.mapX ?? 33)));
+  const targetY = Math.max(12, Math.min(84, Number(targetPlant?.mapY ?? 46)));
+  const targetName = targetPlant?.short || targetPlant?.enName || targetPlant?.name || 'Cebu-N';
   return (
-    <div className="talent-deploy-flight" aria-hidden="true">
+    <div className="talent-deploy-flight" aria-hidden="true" style={{'--deploy-target-x':`${targetX}%`, '--deploy-target-y':`${targetY}%`}}>
       <div className="deploy-route"/>
       {robots.map((r, idx) => {
         const a = _ABI[r.agentId] || _AGENTS[0];
@@ -3278,21 +3377,24 @@ function TalentDeployFlight({ robots=[], onComplete }) {
           </div>
         );
       })}
-      <div className="deploy-target-ring"><span>Cebu-N · iRun Managed</span></div>
+      <div className="deploy-target-ring"><span>{targetName} · iRun Managed</span></div>
     </div>
   );
 }
 
-function CameraDrillOverlay() {
+function CameraDrillOverlay({ targetPlant }) {
+  const targetX = Math.max(8, Math.min(92, Number(targetPlant?.mapX ?? 33)));
+  const targetY = Math.max(12, Math.min(84, Number(targetPlant?.mapY ?? 46)));
+  const label = targetPlant?.short || targetPlant?.enName || targetPlant?.name || 'TARGET PLANT';
   return (
-    <div className="camera-drill">
+    <div className="camera-drill" style={{'--drill-x':`${targetX}%`, '--drill-y':`${targetY}%`}}>
       <div className="camera-reticle"/>
-      <span>DRILLING INTO CEBU-N</span>
+      <span>DRILLING INTO {label}</span>
     </div>
   );
 }
 
-window.IRUN_UI = { TopBar, EventStream, EventStreamTab, DispatchPanel, DispatchTab, AgentDock, MiniMap, QuickFuncs, AgentModal, AgentsRail, isAgentRailDisabled, RobotAvatar, ModeStrip, SkillModal, PlantTitle, DroneFlight, PlantRobot, PlantAgentField, DispatchedRobots, OverviewDispatchRobot, ScenarioDirectorRail, ManagerDecisionConsole, DigitalTeamOrgPanel, OperationsActDock, TalentMarketOverlay, PackagePicker, TalentDeployFlight, CameraDrillOverlay, MissionFeedbackLayer, OperationsBigScreenLayer, useClock, fmtTime, fmtDate, fmtDateTime, LangCtx };
+window.IRUN_UI = { TopBar, EventStream, EventStreamTab, DispatchPanel, DispatchTab, AgentDock, MiniMap, QuickFuncs, AgentModal, AgentsRail, isAgentRailDisabled, RobotAvatar, ModeStrip, SkillModal, PlantTitle, DroneFlight, PlantRobot, PlantAgentField, DispatchedRobots, OverviewDispatchRobot, ScenarioDirectorRail, ManagerDecisionConsole, DigitalTeamOrgPanel, OperationsActDock, TalentMarketOverlay, TrainingCenterModal, PackagePicker, TalentDeployFlight, CameraDrillOverlay, MissionFeedbackLayer, OperationsBigScreenLayer, useClock, fmtTime, fmtDate, fmtDateTime, LangCtx };
 
 // ──────────────────────────────────────────────────────────────────────
 // Collapsed event-stream tab — vertical handle on the left
