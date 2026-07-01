@@ -40,6 +40,91 @@ function makeDeployRobots(packageId) {
   }));
 }
 
+function IntroTransition() {
+  const [phase, setPhase] = useState('video');
+  const [done, setDone] = useState(false);
+  const videoRef = React.useRef(null);
+  const settledRef = React.useRef(false);
+  const fallbackTimerRef = React.useRef(null);
+  const loadingTimerRef = React.useRef(null);
+
+  const finish = useCallback(() => {
+    setDone(true);
+  }, []);
+
+  const clearIntroTimers = useCallback(() => {
+    if (fallbackTimerRef.current) window.clearTimeout(fallbackTimerRef.current);
+    if (loadingTimerRef.current) window.clearTimeout(loadingTimerRef.current);
+    fallbackTimerRef.current = null;
+    loadingTimerRef.current = null;
+  }, []);
+
+  const showLogoFallback = useCallback(() => {
+    if (settledRef.current) return;
+    settledRef.current = true;
+    setPhase('loading');
+    loadingTimerRef.current = window.setTimeout(finish, 1000);
+  }, [finish]);
+
+  const handleVideoReady = useCallback(() => {
+    if (settledRef.current) return;
+    settledRef.current = true;
+    if (fallbackTimerRef.current) window.clearTimeout(fallbackTimerRef.current);
+    fallbackTimerRef.current = null;
+    setPhase('video');
+    const video = videoRef.current;
+    const playResult = video?.play?.();
+    if (playResult && typeof playResult.catch === 'function') {
+      playResult.catch(() => {
+        setPhase('loading');
+        loadingTimerRef.current = window.setTimeout(finish, 1000);
+      });
+    }
+  }, [finish]);
+
+  const skipIntro = useCallback(() => {
+    clearIntroTimers();
+    const video = videoRef.current;
+    if (video) video.pause();
+    finish();
+  }, [clearIntroTimers, finish]);
+
+  useEffect(() => {
+    fallbackTimerRef.current = window.setTimeout(showLogoFallback, 2000);
+    return clearIntroTimers;
+  }, [clearIntroTimers, showLogoFallback]);
+
+  if (done) return null;
+
+  return (
+    <div className={`intro-gate intro-${phase}`}>
+      {phase === 'video' ? (
+        <video
+          ref={videoRef}
+          className="intro-video-el"
+          src="assets/app/videos/video001.mp4"
+          muted
+          playsInline
+          autoPlay
+          preload="metadata"
+          onCanPlay={handleVideoReady}
+          onLoadedData={handleVideoReady}
+          onEnded={finish}
+          onError={showLogoFallback}
+        />
+      ) : (
+        <div className="intro-logo-loading" role="status" aria-label="Loading iRun">
+          <img src="assets/app/brand/irun-icon.png" alt="iRun"/>
+          <span/>
+        </div>
+      )}
+      {phase === 'video' && (
+        <button type="button" className="intro-skip" onClick={skipIntro}>跳过</button>
+      )}
+    </div>
+  );
+}
+
 function App(){
   const [plants, setPlants] = useState(() => window.IRUN?.PLANTS || APP_PLANTS || []);
   const [focusId, setFocusId] = useState(null);
@@ -442,7 +527,7 @@ function App(){
 
   const openHireDeploy = useCallback(() => {
     setPackagePickerOpen(true);
-    setActDockOpen(true);
+    setActDockOpen(false);
   }, []);
 
   const markCebuManaged = useCallback((robots) => {
@@ -617,6 +702,8 @@ function App(){
 
       {/* top KPIs */}
       <TopBar focusPlant={focusPlant} plants={tenantPlants} agg={tenantAgg} onPlantChange={handlePlantChange} tenant={tenant} tenantIdx={tenantIdx} onTenant={onTenantChange} onBack={()=>setFocusId(null)} lang={lang} onLang={toggleLang} theme={theme} onTheme={toggleTheme} simulator={simulatorState} agentsRailVisible={agentsRailVisible} onAgentsRailToggle={()=>setAgentsRailVisible(v=>!v)}/>
+
+      <IntroTransition/>
 
       {!simulatorEnabled && viewMode === 'map2' && (
         <TalentMarketOverlay onHireDeploy={openHireDeploy}/>

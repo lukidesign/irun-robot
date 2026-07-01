@@ -342,6 +342,17 @@ function ThemeIcon({mode}){
     ? (<svg {...props}><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.9" y1="4.9" x2="6.9" y2="6.9"/><line x1="17.1" y1="17.1" x2="19.1" y2="19.1"/><line x1="4.9" y1="19.1" x2="6.9" y2="17.1"/><line x1="17.1" y1="6.9" x2="19.1" y2="4.9"/></svg>)
     : (<svg {...props}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>);
 }
+function RefreshIcon(){
+  const props = { width:14, height:14, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:1.7, strokeLinecap:'round', strokeLinejoin:'round' };
+  return (
+    <svg {...props}>
+      <path d="M21 12a9 9 0 0 1-15.5 6.2"/>
+      <path d="M3 12A9 9 0 0 1 18.5 5.8"/>
+      <path d="M18.5 2.8v3h-3"/>
+      <path d="M5.5 21.2v-3h3"/>
+    </svg>
+  );
+}
 
 // ──────────────────────────────────────────────────────────────────────
 // Top bar
@@ -443,7 +454,7 @@ function TopBar({focusPlant, plants, agg, onPlantChange, tenant, tenantIdx, onTe
       <div className="crumbs">
         <div className="crumb-row">
           <span className={`crumb crumb-top ${!focusPlant?'active':''}`} onClick={onBack} style={{cursor:focusPlant?'pointer':'default'}}>{zh?'总览':'Overview'}</span>
-          <span className="top-slogan">SOLGAN</span>
+          <span className="top-slogan">Token, going overseas — a 24/7 digital O&amp;M team for every ASEAN plant.</span>
         </div>
         {focusPlant && <>
           <div className="crumb-picker" ref={pickerRef}>
@@ -510,6 +521,10 @@ function TopBar({focusPlant, plants, agg, onPlantChange, tenant, tenantIdx, onTe
               </div>
             );
           })()}
+          <button className="refresh-toggle" onClick={()=>window.location.reload()}
+                  title={zh?'重新刷新':'Reload'}>
+            <RefreshIcon/>
+          </button>
           <button className="theme-toggle" onClick={onTheme}
                   title={theme==='light' ? (zh?'切换到暗色':'Switch to Dark') : (zh?'切换到亮色':'Switch to Light')}>
             <ThemeIcon mode={theme}/>
@@ -3191,10 +3206,15 @@ const PACKAGE_CARDS = [
   { id:'full', kicker:'TEAM PACKAGE 03', title:'Full-Managed Squad', token:'12K-18K / day', text:'A full digital team with arbitration, reporting and safety review.', members:['ops','alert','diag','order','sched','safe'] },
 ];
 function PackagePicker({ onPick, onClose }) {
+  React.useEffect(() => {
+    const onKey = e => { if (e.key === 'Escape') onClose?.(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
   return (
-    <div className="package-picker">
+    <div className="package-picker" onMouseDown={(e)=>{ if (e.target === e.currentTarget) onClose?.(); }}>
       <button type="button" className="package-close" onClick={onClose}>×</button>
-      <div className="package-grid">
+      <div className="package-grid" onMouseDown={e=>e.stopPropagation()}>
         {PACKAGE_CARDS.map(pack => (
           <button key={pack.id} type="button" className={`package-card package-${pack.id}`} onClick={()=>onPick?.(pack.id)}>
             <span>{pack.kicker}</span>
