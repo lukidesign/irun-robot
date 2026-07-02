@@ -362,6 +362,12 @@ function TopBar({focusPlant, plants, agg, onPlantChange, tenant, tenantIdx, onTe
   const [plantPickerOpen, setPlantPickerOpen] = useState(false);
   const [overview, setOverview] = useState(null);
   const pickerRef = React.useRef(null);
+  const plantDisplayName = (p) => {
+    if (!p) return '';
+    return zh
+      ? (p.name || p.short || p.enName || p.id)
+      : (p.enName || p.short || p.name || p.id);
+  };
   // Click-outside + ESC to close the plant picker
   React.useEffect(()=>{
     if(!plantPickerOpen) return;
@@ -441,20 +447,24 @@ function TopBar({focusPlant, plants, agg, onPlantChange, tenant, tenantIdx, onTe
   const simManual = simulator?.selectedDecision === 'manual' ? 1 : 0;
   const simSaved = simulator?.enabled ? (4.8 + Math.max(0, simulator.sceneIndex || 0) * 0.42).toFixed(1) : '0.0';
   const simReusable = simulator?.enabled ? Math.max(2, Math.min(11, 2 + Math.floor((simulator.sceneIndex || 0) * 1.1))) : 0;
+  const handleRefresh = () => {
+    try { sessionStorage.setItem('irun:skip-intro-once', '1'); } catch (e) {}
+    document.body.classList.add('irun-refreshing');
+    window.setTimeout(() => window.location.reload(), 140);
+  };
 
   return (
     <div className="topbar">
       <div className="brand">
         <div className="brand-mark"><img src="assets/app/brand/irun-icon.png" alt="iRun" className="brand-icon"/></div>
         <div className="brand-text">
-          <b>iRUN<span style={{color:'var(--cyan)'}}>·</span>AI</b>
+          <b>iRUN<span style={{color:'var(--cyan)'}}>·</span>WORKBENCH</b>
         </div>
       </div>
 
       <div className="crumbs">
         <div className="crumb-row">
           <span className={`crumb crumb-top ${!focusPlant?'active':''}`} onClick={onBack} style={{cursor:focusPlant?'pointer':'default'}}>{zh?'总览':'Overview'}</span>
-          <span className="top-slogan">Token, going overseas — a 24/7 digital O&amp;M team for every ASEAN plant.</span>
         </div>
         {focusPlant && <>
           <div className="crumb-picker" ref={pickerRef}>
@@ -465,7 +475,7 @@ function TopBar({focusPlant, plants, agg, onPlantChange, tenant, tenantIdx, onTe
                       e.stopPropagation();
                       setPlantPickerOpen(o=>!o);
                     }}>
-              <span className="picker-btn-name">{zh ? focusPlant.name : (focusPlant.enName || focusPlant.name)}</span>
+              <span className="picker-btn-name">{plantDisplayName(focusPlant)}</span>
               <span className={`picker-caret${plantPickerOpen?' open':''}`}>▼</span>
             </button>
             {plantPickerOpen && (
@@ -481,7 +491,7 @@ function TopBar({focusPlant, plants, agg, onPlantChange, tenant, tenantIdx, onTe
                          setPlantPickerOpen(false);
                        }}>
                     <span className={`cpm-dot cpm-dot-${p.risk||'low'}`}/>
-                    <span className="cpm-name">{zh ? p.name : (p.enName || p.name)}</span>
+                    <span className="cpm-name">{plantDisplayName(p)}</span>
                   </div>
                 ))}
               </div>
@@ -521,7 +531,8 @@ function TopBar({focusPlant, plants, agg, onPlantChange, tenant, tenantIdx, onTe
               </div>
             );
           })()}
-          <button className="refresh-toggle" onClick={()=>window.location.reload()}
+          <button className="refresh-toggle" onClick={handleRefresh}
+                  aria-label={zh?'重新刷新':'Reload'}
                   title={zh?'重新刷新':'Reload'}>
             <RefreshIcon/>
           </button>
@@ -537,10 +548,7 @@ function TopBar({focusPlant, plants, agg, onPlantChange, tenant, tenantIdx, onTe
             title={zh ? (agentsRailVisible ? '隐藏 AI 员工' : '显示 AI 员工') : (agentsRailVisible ? 'Hide AI agents' : 'Show AI agents')}
             onClick={onAgentsRailToggle}
           >
-            <span className="agt-ico-head"/>
-            <span className="agt-ico-body"/>
-            <span className="agt-ico-dot agt-ico-dot-a"/>
-            <span className="agt-ico-dot agt-ico-dot-b"/>
+            <span className="token-label">Token</span>
           </button>
         </div>
       </div>
@@ -2650,9 +2658,19 @@ function OverviewDispatchRobot({ botKey, plant, recall, onDone }){
 // Active agents (busyMap hit) glow + lift. Used in img2 when a plant
 // provides robotField data; otherwise the single walking PlantRobot is used.
 const getDemoPlantTeamUnavailableIds = (id) => window.IRUN?.getDemoPlantTeamUnavailableIds?.(id) || [];
-function PlantAgentField({plant, busyMap, cur}){
+function PlantAgentField({plant, busyMap, cur, onOpenAgent}){
   const l = useLang(); const zh = l !== 'en';
   if (!plant?.robotField?.length) return null;
+  const isManila = plant.id === '1879736315115044864';
+  const postLabel = (post) => ({
+    monitor: zh ? '监控台' : 'Monitor',
+    equipment: zh ? '设备区' : 'Equipment',
+    'drone-bay': zh ? '机巢' : 'Drone Bay',
+    dispatch: zh ? '调度台' : 'Dispatch',
+    safety: zh ? '安全岗' : 'Safety',
+    data: zh ? '数据岗' : 'Data',
+    ops: zh ? '运营席' : 'Ops',
+  }[post] || (zh ? '在岗' : 'On Duty'));
   const unavailableAgentIds = new Set(getDemoPlantTeamUnavailableIds(plant?.id));
   const visibleRobots = plant.robotField.filter(r => !r.anchorOnly && !unavailableAgentIds.has(r.agent) && r.agent !== 'drone');
   if (!visibleRobots.length) return null;
@@ -2676,7 +2694,7 @@ function PlantAgentField({plant, busyMap, cur}){
                   : isSafetyStep(cur) ? '#f87171'
                   : '#22d3ee';
   return (
-    <div className="plant-agent-field" aria-hidden="true">
+    <div className={`plant-agent-field${isManila ? ' manila-field' : ''}`}>
       {/* connection lines: current scenario step (from → to) — 3px line */}
       <svg className="paf-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
         {fromPos && toPos && cur.from !== cur.to && (
@@ -2717,8 +2735,13 @@ function PlantAgentField({plant, busyMap, cur}){
         const tagClass = cur ? ` tag-${cur.type==='action'?'mid':(isSafetyStep(cur)?'high':'low')}` : '';
         return (
           <div key={r.agent}
-               className={`paf-robot${active?' active':''}`}
-               style={{left:`${r.x}%`, top:`${r.y}%`, animationDelay:`${i*0.3}s`}}>
+               className={`paf-robot${active?' active':''}${isManila ? ' manila-worker' : ''}`}
+               role={isManila ? 'button' : undefined}
+               tabIndex={isManila ? 0 : undefined}
+               onClick={isManila ? (()=>onOpenAgent?.(r.agent)) : undefined}
+               onKeyDown={isManila ? ((e)=>{ if(e.key === 'Enter' || e.key === ' ') onOpenAgent?.(r.agent); }) : undefined}
+               style={{left:`${r.x}%`, top:`${r.y}%`, animationDelay:`${i*0.3}s`, '--agent-color': _CATS[ag.cat]?.color || '#22d3ee'}}>
+            {isManila && <span className="paf-status-ring"/>}
             {showBubble && (
               <div className={`paf-bubble${tagClass}`} key={`b-${stepText(cur, zh)}`}>
                 <div className="paf-bubble-head">
@@ -2730,9 +2753,395 @@ function PlantAgentField({plant, busyMap, cur}){
             )}
             <RobotAvatar agent={ag} size={56} glow={active}/>
             <div className="paf-badge">{ag.code}</div>
+            {isManila && (
+              <div className="paf-post">
+                <span>{postLabel(r.post)}</span>
+                <em>{zh ? '在岗' : 'On duty'}</em>
+              </div>
+            )}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+const MANILA_DOSSIER = {
+  alert: {
+    ageZh:'142天', ageEn:'142 days', sites:'5', statusZh:'在岗（监控中）', statusEn:'On duty · monitoring',
+    outputZh:'接收事件312 / 过滤误报274 / 有效研判38 / 建议派单5 / 事件升级2',
+    outputEn:'312 events received / 274 false positives filtered / 38 judged / 5 dispatch suggestions / 2 escalations',
+    skillZh:'多源事件汇聚、误报过滤、隐藏风险识别（如反复自动恢复告警）',
+    skillEn:'Multi-source event fusion, false-positive filtering, hidden-risk detection such as repeated auto-recovery alarms',
+    peers:'DGN / ORD / OPS', token:'1,920',
+  },
+  diag: { ageZh:'118天', ageEn:'118 days', sites:'7', statusZh:'在岗（诊断中）', statusEn:'On duty · diagnosing', outputZh:'完成根因分析26项 / 生成建议12条', outputEn:'26 RCA tasks / 12 recommendations', skillZh:'组串低效、逆变器异常、趋势归因', skillEn:'String underperformance, inverter anomalies, trend attribution', peers:'ALT / PV / ORD', token:'1,640' },
+  order: { ageZh:'96天', ageEn:'96 days', sites:'6', statusZh:'在岗（工单闭环）', statusEn:'On duty · ticket closure', outputZh:'自动建单9 / 跟踪闭环7 / 逾期预警1', outputEn:'9 tickets created / 7 closures tracked / 1 overdue warning', skillZh:'工单生成、SLA跟踪、执行反馈归档', skillEn:'Ticketing, SLA tracking, execution feedback archive', peers:'DGN / SCH / SAFE', token:'1,280' },
+  sched: { ageZh:'104天', ageEn:'104 days', sites:'6', statusZh:'在岗（排程中）', statusEn:'On duty · scheduling', outputZh:'路径优化4条 / 人员排班3组', outputEn:'4 optimized routes / 3 crew schedules', skillZh:'人员、路径、机具资源排程', skillEn:'Crew, route and equipment scheduling', peers:'ORD / INP / SAFE', token:'1,120' },
+  insp: { ageZh:'88天', ageEn:'88 days', sites:'4', statusZh:'在岗（巡检中）', statusEn:'On duty · inspecting', outputZh:'巡检航线2条 / 缺陷候选18处', outputEn:'2 inspection routes / 18 defect candidates', skillZh:'无人机巡检、红外识别、缺陷复核', skillEn:'UAV inspection, infrared recognition, defect review', peers:'PV / SCH / SAFE', token:'1,460' },
+  ops: { ageZh:'156天', ageEn:'156 days', sites:'12', statusZh:'在岗（运营统筹）', statusEn:'On duty · operating', outputZh:'收益复盘3份 / 托管建议2条', outputEn:'3 yield reviews / 2 handover suggestions', skillZh:'运营统筹、收益归因、策略协调', skillEn:'Operations coordination, yield attribution, strategy orchestration', peers:'ALL', token:'2,240' },
+  warn: { ageZh:'130天', ageEn:'130 days', sites:'9', statusZh:'在岗（预测中）', statusEn:'On duty · forecasting', outputZh:'风险预测17项 / 提前预警4项', outputEn:'17 risk forecasts / 4 early warnings', skillZh:'KPI趋势、天气影响、低效预警', skillEn:'KPI trend, weather impact, underperformance warning', peers:'ALT / OPS', token:'980' },
+  safe: { ageZh:'101天', ageEn:'101 days', sites:'5', statusZh:'在岗（审批中）', statusEn:'On duty · approving', outputZh:'安全审批6项 / 高风险升级1项', outputEn:'6 safety approvals / 1 high-risk escalation', skillZh:'安全审批、作业边界、风险升级', skillEn:'Safety approval, work boundary, risk escalation', peers:'SCH / ORD / OPS', token:'860' },
+  pv: { ageZh:'76天', ageEn:'76 days', sites:'4', statusZh:'在岗（光伏支持）', statusEn:'On duty · PV support', outputZh:'组件分析14组 / 热斑复核3处', outputEn:'14 module analyses / 3 hotspot reviews', skillZh:'组件、组串、热斑和遮挡分析', skillEn:'Module, string, hotspot and shading analysis', peers:'DGN / INP', token:'1,050' },
+  query: { ageZh:'122天', ageEn:'122 days', sites:'10', statusZh:'在岗（问数中）', statusEn:'On duty · querying', outputZh:'数据调用86次 / 报表片段12项', outputEn:'86 data calls / 12 report snippets', skillZh:'数据检索、指标解释、报表问答', skillEn:'Data retrieval, KPI explanation, report Q&A', peers:'OPS / ALT / DGN', token:'760' },
+};
+
+const MANILA_SCENE_TEXT = {
+  alarm: {
+    zhTitle:'预设告警已触发',
+    enTitle:'Preset alarm triggered.',
+    zhLine:'组串低效告警进入协同演出。',
+    enLine:'String underperformance is now entering the team flow.',
+  },
+  event: {
+    zhTitle:'组串低效告警——2 号方阵 / 12 号逆变器 / 3 号汇流箱 / 第 4 路组串',
+    enTitle:'String underperformance detected — Array 2 / Inverter 12 / Combiner 3 / String 4.',
+    zhLine:'告警智能体完成初判：非误报、趋势性劣化，建议升级诊断。',
+    enLine:'iRun.Alarm judges it as a real trend defect and recommends diagnosis escalation.',
+  },
+  collab: {
+    zhTitle:'从告警到处置，团队协同完成',
+    enTitle:'From alarm to action — the team handles it together.',
+    zhLine:'任务卡在告警、诊断、工单、排程、安全之间流转。',
+    enLine:'The task card moves through Alarm, Diagnosis, Ticket, Scheduling and Safety.',
+  },
+  arbitration: {
+    zhTitle:'团队意见不一致，主管来定夺',
+    enTitle:'The team disagrees. The supervisor decides.',
+    zhLine:'运营主管调取证据、收益与风险模型后给出裁决。',
+    enLine:'The supervisor weighs evidence, yield and safety risk before deciding.',
+  },
+  closure: {
+    zhTitle:'今日团队报告',
+    enTitle:"Today’s team report.",
+    zhLine:'自主闭环 241 起，需要你 1 起，占用你 23 分钟。',
+    enLine:'241 closed autonomously. 1 needed you. 23 minutes of your time.',
+  },
+  outcomes: {
+    zhTitle:'成果正在回流公司层',
+    enTitle:'Plant outcomes are flowing back to HQ.',
+    zhLine:'自主闭环、Token、经验案例与损失下降数据正在上传。',
+    enLine:'Closures, Tokens, new cases and recovered yield are streaming upward.',
+  },
+  managed: {
+    zhTitle:'把这个电站托管给 iRun',
+    enTitle:'Hand this plant over to iRun.',
+    zhLine:'一整年，由你的数字团队运行。',
+    enLine:'One year, run by your digital team.',
+  },
+  managerDay: {
+    zhTitle:'AI 已经把上下文准备好了，你只做关键判断',
+    enTitle:'AI has prepared the context. You just make the call.',
+    zhLine:'处理 2–3 张审批/仲裁卡，AI 团队按你的决策继续执行。',
+    enLine:'Handle 2–3 approval cards while the AI team executes your calls.',
+  },
+};
+
+const MANILA_MANAGER_CARDS = [
+  {
+    id:'hotspot', agent:'diag',
+    zhTitle:'审批卡 1 · 热斑复检',
+    enTitle:'Approval 1 · Hotspot Recheck',
+    zhText:'2 号方阵-12 号逆变器-3 号汇流箱-第 4 路组串持续偏低 18%，7 天 3 次自恢复。AI 建议明日 09:00 无人机红外复检。',
+    enText:'Array 2 / Inv 12 / Combiner 3 / String 4 is 18% low with 3 auto-recovery events in 7 days. AI recommends UAV infrared recheck tomorrow 09:00.',
+    zhMetric:'日损约 28 kWh；扩展后可达 340 kWh/日',
+    enMetric:'28 kWh/day now; up to 340 kWh/day if expanded',
+    zhActions:['同意复检','直接派工换件','继续观察'],
+    enActions:['Approve recheck','Dispatch replacement','Keep observing'],
+  },
+  {
+    id:'cleaning', agent:'sched',
+    zhTitle:'审批卡 2 · 清洗排程',
+    enTitle:'Approval 2 · Cleaning Schedule',
+    zhText:'A 片区污秽度上升，PR 环比下降 2.3 个百分点。明日 06:00–09:00 低辐照、低风速，适合清洗机器人作业。',
+    enText:'Zone A soiling is rising and PR is down 2.3 pct. Tomorrow 06:00–09:00 has low irradiance and wind, suitable for cleaning robots.',
+    zhMetric:'估算日损约 6,800 kWh，约 ¥2,720/日',
+    enMetric:'Estimated 6,800 kWh/day loss, about ¥2,720/day',
+    zhActions:['同意','修改时间','暂缓'],
+    enActions:['Approve','Change time','Defer'],
+  },
+  {
+    id:'dispute', agent:'ops',
+    zhTitle:'审批卡 3 · 分歧仲裁',
+    enTitle:'Approval 3 · Disagreement Arbitration',
+    zhText:'告警建议观察，诊断建议立即介入。运营主管建议先红外复检，确诊后再决定是否派工。',
+    enText:'Alarm suggests observation while Diagnosis wants intervention. The supervisor recommends infrared verification before dispatch.',
+    zhMetric:'低成本复检，控制扩展与安全风险',
+    enMetric:'Low-cost verification controls expansion and safety risk',
+    zhActions:['采纳建议','直接派工','继续观察'],
+    enActions:['Accept recommendation','Dispatch now','Keep observing'],
+  },
+];
+
+function ManilaSceneCaption({ scene, zh }) {
+  const meta = MANILA_SCENE_TEXT[scene];
+  if (!meta) return null;
+  return (
+    <div className={`manila-scene-caption caption-${scene}`}>
+      <span>{scene === 'managerDay' ? (zh?'当一天经理':'Be the Manager') : scene.toUpperCase()}</span>
+      <b>{zh ? meta.zhTitle : meta.enTitle}</b>
+      <p>{zh ? meta.zhLine : meta.enLine}</p>
+    </div>
+  );
+}
+
+function ManilaAlarmScene({ scene, zh, onOpenAgent }) {
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  useEffect(() => setSummaryOpen(false), [scene]);
+  return (
+    <div className="manila-alarm-scene">
+      <button type="button" className="manila-alarm-marker" onClick={()=>setSummaryOpen(v=>!v)}>
+        <span/>
+        <b>{zh?'告警点':'Alarm'}</b>
+      </button>
+      <button type="button" className="manila-task-card alarm-task-card" onClick={()=>onOpenAgent?.('alert')}>
+        <span>EVT-A2-I12-C3-S4</span>
+        <b>{zh?'组串电流离散率告警':'String Current Dispersion'}</b>
+        <em>{zh?'低于同汇流箱均值约 18%':'18% below peer-string average'}</em>
+        <i>iRun.Alarm → iRun.Diagnosis</i>
+      </button>
+      <div className="manila-event-flow">
+        <span>{zh?'实时事件流':'Live Event Stream'}</span>
+        {[
+          zh?'新告警：2 号方阵 / 12 号逆变器 / 第 4 路组串':'New alarm: Array 2 / Inv 12 / String 4',
+          zh?'关联：近 7 天 3 次“电流偏低-自动恢复”':'Correlation: 3 auto-recovery events in 7 days',
+          zh?'初判：排除辐照波动，非误报':'Initial judgment: irradiance fluctuation excluded',
+        ].map((line, idx) => <p key={line} style={{'--i':idx}}>{line}</p>)}
+      </div>
+      {summaryOpen && (
+        <div className="manila-alarm-summary">
+          <span>{zh?'研判摘要':'Assessment Summary'}</span>
+          <b>{zh?'趋势性劣化，中风险':'Trend degradation · Medium risk'}</b>
+          <p>{zh
+            ? '排除辐照波动/云遮后，判定为非误报；疑似隐裂、虚接或热斑早期特征，建议升级诊断。'
+            : 'After excluding irradiance fluctuation/cloud cover, this is not a false positive. Suspected early crack, loose contact or hotspot; escalate to diagnosis.'}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ManilaCollabScene({ zh, onOpenAgent }) {
+  const flow = [
+    ['alert', zh?'告警：真实缺陷':'Alarm: real defect'],
+    ['diag', zh?'诊断：I-V 台阶':'Diagnosis: I-V step'],
+    ['order', zh?'工单：高优先级':'Ticket: high priority'],
+    ['sched', zh?'排程：明日 09:00':'Schedule: tomorrow 09:00'],
+    ['safe', zh?'安全：LOTO 作业卡':'Safety: LOTO card'],
+  ];
+  return (
+    <div className="manila-collab-scene">
+      <svg className="manila-collab-beam" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <path d="M16 62 C30 40, 43 34, 55 50 S74 68, 86 38"/>
+      </svg>
+      <div className="manila-flying-task">TASK · EVT-A2-I12</div>
+      <div className="manila-collab-agents">
+        {flow.map(([id, line], idx) => {
+          const a = _ABI[id];
+          if (!a) return null;
+          return (
+            <button key={id} type="button" style={{'--i':idx,'--agent-color':_CATS[a.cat].color}} onClick={()=>onOpenAgent?.(id)}>
+              <RobotAvatar agent={a} size={38} glow/>
+              <b>{a.code}</b>
+              <span>{line}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="manila-collab-data">
+        <p>{zh?'持续偏低 18% + 7 天 3 次自恢复，判定真实缺陷。':'18% sustained underperformance + 3 auto-recoveries in 7 days, judged as a real defect.'}</p>
+        <p>{zh?'I-V 曲线呈台阶状，疑似组件热斑或隐裂，中风险。':'I-V curve shows a step pattern; suspected hotspot or micro-crack, medium risk.'}</p>
+        <p>{zh?'明日 09:00–11:00，张工（无人机）+ 李工（电工），车辆 1。':'Tomorrow 09:00–11:00, Zhang (UAV) + Li (electrician), vehicle 1.'}</p>
+      </div>
+    </div>
+  );
+}
+
+function ManilaArbitrationScene({ zh, onOpenAgent }) {
+  const panels = [
+    { id:'alert', title:zh?'告警判断':'Alarm Judgment', tone:'observe', text:zh?'建议继续观察：单组串、当前损失小，近期可自动恢复。':'Keep observing: single string, small current loss, recent auto-recovery.' },
+    { id:'diag', title:zh?'诊断判断':'Diagnosis Judgment', tone:'intervene', text:zh?'建议立即介入：I-V 台阶 + 3 次自恢复，符合隐裂/热斑早期特征。':'Intervene now: I-V step + 3 auto-recoveries fit early crack/hotspot pattern.' },
+    { id:'ops', title:zh?'运营主管仲裁':'Supervisor Arbitration', tone:'decide', text:zh?'先红外复检确认；若 ΔT≥20°C，直接升级人类经理。':'Run infrared verification first; if Delta T >= 20°C, escalate to human manager.' },
+  ];
+  return (
+    <div className="manila-arbitration-scene">
+      <div className="manila-dispute-badge">{zh?'分歧':'DISAGREEMENT'}</div>
+      {panels.map((p, idx) => {
+        const a = _ABI[p.id];
+        return (
+          <button key={p.id} type="button" className={`arb-panel ${p.tone}`} style={{'--i':idx,'--agent-color':_CATS[a.cat].color}} onClick={()=>onOpenAgent?.(p.id)}>
+            <RobotAvatar agent={a} size={44} glow/>
+            <span>{p.title}</span>
+            <b>{a.code}</b>
+            <p>{p.text}</p>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ManilaClosureScene({ zh }) {
+  const metrics = [
+    ['241', zh?'自主闭环':'Autonomous closures'],
+    ['1', zh?'需要你':'Needed you'],
+    ['23m', zh?'经理耗时':'Manager time'],
+    ['12,840', zh?'今日 Token':'Today Tokens'],
+  ];
+  return (
+    <div className="manila-closure-scene">
+      <span>{zh?'今日团队报告':"TODAY'S TEAM REPORT"}</span>
+      <b>{zh?'自主闭环 241 起，需要你 1 起，占用你 23 分钟':'241 closed autonomously. 1 needed you. 23 minutes of your time.'}</b>
+      <div className="closure-metric-grid">
+        {metrics.map(([v,l]) => <div key={l}><strong>{v}</strong><em>{l}</em></div>)}
+      </div>
+      <p>{zh
+        ? '误报过滤 274 · 有效事件 38 · 无人机巡检 2 架次 · 清洗 A 片区 8 MW · PR 82.6%（↑0.8 pct）· 新增案例 6 条。'
+        : '274 false positives filtered · 38 effective events · 2 UAV flights · Zone A cleaned 8 MW · PR 82.6% (+0.8 pct) · 6 new cases.'}</p>
+    </div>
+  );
+}
+
+function ManilaManagedScene({ zh }) {
+  return (
+    <div className="manila-managed-scene">
+      <button type="button" className="managed-hand-button">{zh?'把这个电站托管给 iRun':'Hand this plant over to iRun'}</button>
+      <div className="managed-speed">
+        {['1x','30x','365x'].map((s,idx)=><span key={s} style={{'--i':idx}}>{s}</span>)}
+      </div>
+      <div className="managed-year-report">
+        <span>{zh?'一整年，由你的数字团队运行':'One year, run by your digital team.'}</span>
+        <b>87,600</b>
+        <em>{zh?'全年自主闭环 · 人工介入率 <0.5% · 响应 4.2 小时 → 8 分钟':'Annual autonomous closures · manual intervention <0.5% · response 4.2h → 8min'}</em>
+        <p>{zh?'PR 82.4%（↑1.6 pct）· 多发约 180 万 kWh · 增收约 ¥72 万 · 经验案例 1,400+ 条。':'PR 82.4% (+1.6 pct) · +1.8M kWh recovered · about ¥720K gain · 1,400+ experience cases.'}</p>
+      </div>
+    </div>
+  );
+}
+
+function ManilaManagerScene({ zh, onOpenAgent }) {
+  const [decision, setDecision] = useState('');
+  return (
+    <div className="manila-manager-scene">
+      <div className="manager-workbench-head">
+        <span>{zh?'经理审批工作台':'Manager Approval Desk'}</span>
+        <b>{zh?'AI 已备好上下文，你只做关键判断':'AI has prepared the context. You just make the call.'}</b>
+      </div>
+      <div className="manager-card-grid">
+        {MANILA_MANAGER_CARDS.map(card => (
+          <div key={card.id} className="manager-approval-card">
+            <div className="manager-card-agent">
+              <RobotAvatar agent={_ABI[card.agent]} size={36} glow/>
+              <i>{_ABI[card.agent]?.code}</i>
+            </div>
+            <span>{zh ? card.zhMetric : card.enMetric}</span>
+            <b>{zh ? card.zhTitle : card.enTitle}</b>
+            <p>{zh ? card.zhText : card.enText}</p>
+            <div className="manager-actions">
+              {(zh ? card.zhActions : card.enActions).map(label => (
+                <button key={label} type="button" onClick={()=>setDecision(`${zh ? card.zhTitle : card.enTitle} · ${label}`)}>{label}</button>
+              ))}
+            </div>
+            <button type="button" className="manager-drill" onClick={()=>onOpenAgent?.(card.agent)}>
+              {zh?'查看 Agent 工作界面':'View Agent Workspace'}
+            </button>
+          </div>
+        ))}
+      </div>
+      {decision && <div className="manager-decision-toast">{zh?'已执行决策：':'Decision executed: '}{decision}</div>}
+    </div>
+  );
+}
+
+function ManilaOutcomesScene({ zh }) {
+  return (
+    <div className="manila-outcomes-scene">
+      <div className="outcomes-uplink">
+        <span>{zh?'单站成果上行':'SITE DATA UPLINK'}</span>
+        <b>{zh?'闭环 +241 · Token +12,840 · 新经验 +6 · 损失 ↓12,000 kWh':'Closures +241 · Tokens +12,840 · Cases +6 · Loss ↓12,000 kWh'}</b>
+      </div>
+      {Array.from({length:7}).map((_,idx)=><i key={idx} style={{'--i':idx}}/>)}
+    </div>
+  );
+}
+
+function ManilaSiteOverlay({ scene, onOpenAgent }) {
+  const l = useLang(); const zh = l !== 'en';
+  const crew = ['alert','diag','order','sched','insp','ops'];
+  const isAlarmScene = scene === 'alarm' || scene === 'event';
+  return (
+    <div className={`manila-site-layer${scene ? ` scene-${scene}` : ''}`}>
+      <div className="manila-status-strip">
+        <span>{zh?'电站基础':'Plant Base'}</span>
+        <b>100MWp</b>
+        <em>{zh?'18万组件 · 6,000组串 · 数百台组串式逆变器':'180k modules · 6,000 strings · hundreds of string inverters'}</em>
+        <div><i>PR 82.1%</i><i>{zh?'可利用率 99.4%':'Availability 99.4%'}</i><i>{zh?'日发电约 40万kWh':'Daily ~400k kWh'}</i></div>
+      </div>
+      <svg className="manila-task-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M24 38 C34 26, 47 28, 57 46"/>
+        <path d="M45 41 C50 52, 55 58, 69 59"/>
+        <path d="M42 59 C52 70, 66 66, 78 46"/>
+      </svg>
+      <div className="manila-live-bubbles">
+        {crew.map((id, idx) => {
+          const a = _ABI[id];
+          if (!a) return null;
+          return (
+            <button key={id} type="button" style={{'--i':idx, '--agent-color':_CATS[a.cat].color}} onClick={()=>onOpenAgent?.(id)}>
+              <b>{a.code}</b><span>{zh ? a.short : a.en}</span>
+            </button>
+          );
+        })}
+      </div>
+      <ManilaSceneCaption scene={scene} zh={zh}/>
+      {isAlarmScene && <ManilaAlarmScene scene={scene} zh={zh} onOpenAgent={onOpenAgent}/>}
+      {scene === 'collab' && <ManilaCollabScene zh={zh} onOpenAgent={onOpenAgent}/>}
+      {scene === 'arbitration' && <ManilaArbitrationScene zh={zh} onOpenAgent={onOpenAgent}/>}
+      {scene === 'closure' && <ManilaClosureScene zh={zh}/>}
+      {scene === 'managed' && <ManilaManagedScene zh={zh}/>}
+      {scene === 'managerDay' && <ManilaManagerScene zh={zh} onOpenAgent={onOpenAgent}/>}
+      {scene === 'outcomes' && <ManilaOutcomesScene zh={zh}/>}
+    </div>
+  );
+}
+
+function ManilaAgentDossier({ agentId, onClose }) {
+  const l = useLang(); const zh = l !== 'en';
+  const a = _ABI[agentId] || _ABI.alert;
+  const cat = _CATS[a.cat];
+  const d = MANILA_DOSSIER[agentId] || MANILA_DOSSIER.alert;
+  const rows = [
+    [zh?'姓名/编号':'Name / ID', `${agentName(a, zh)} / ${a.code}`],
+    [zh?'岗位':'Post', agentRole(a, zh)],
+    [zh?'数字工龄':'Digital Tenure', zh ? d.ageZh : d.ageEn],
+    [zh?'覆盖电站数':'Covered Sites', d.sites],
+    [zh?'当前状态':'Current Status', zh ? d.statusZh : d.statusEn],
+    [zh?'今日产出':'Today Output', zh ? d.outputZh : d.outputEn],
+    [zh?'擅长能力':'Strengths', zh ? d.skillZh : d.skillEn],
+    [zh?'协作对象':'Collaborators', d.peers],
+    [zh?'今日Token':'Today Token', d.token],
+  ];
+  return (
+    <div className="modal-bd manila-dossier-bd" onClick={onClose}>
+      <div className="manila-dossier" onClick={e=>e.stopPropagation()} style={{'--cat-color':cat.color}}>
+        <div className="dossier-head">
+          <RobotAvatar agent={a} size={78} glow/>
+          <div>
+            <span>{zh?'数字员工档案':'Digital Employee Dossier'}</span>
+            <h2>{agentName(a, zh)}</h2>
+            <p>{catLabel(cat, zh)} · {agentRole(a, zh)}</p>
+          </div>
+          <button type="button" onClick={onClose}>×</button>
+        </div>
+        <div className="dossier-table">
+          {rows.map(([k, v]) => (
+            <div key={k} className="dossier-row">
+              <span>{k}</span>
+              <b>{v}</b>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -3035,7 +3444,7 @@ function OperationsBigScreenLayer({ currentScene, score, badges=[], selectedDeci
 
       <div className="ops-hero-copy">
         <span>{sceneId} · {currentScene?.interaction}</span>
-        <h1>{isWorld ? 'Token, going overseas.' : simSceneTitle(currentScene, false)}</h1>
+        <h1>{isWorld ? 'ASEAN Operations Network.' : simSceneTitle(currentScene, false)}</h1>
         <p>{isWorld ? 'A 24/7 digital O&M team for every ASEAN plant.' : simSceneLine(currentScene, false)}</p>
       </div>
 
@@ -3132,10 +3541,10 @@ function OperationsBigScreenLayer({ currentScene, score, badges=[], selectedDeci
       )}
 
       <div className="ops-bottom-actions">
-        <button onClick={()=>onSelectScene?.('S2')}>HireaTeam</button>
-        <button onClick={()=>onSelectScene?.('S7')}>BetheManager</button>
-        <button className="primary" onClick={()=>onSelectScene?.('S9')}>Handoverto iRun</button>
-        <button onClick={()=>onSelectScene?.('S10')}>ACT</button>
+        <button onClick={()=>onSelectScene?.('S2')}>Hire a Team</button>
+        <button onClick={()=>onSelectScene?.('S7')}>Bet he Manager</button>
+        <button className="primary" onClick={()=>onSelectScene?.('S9')}>Hand over to iRun</button>
+        <button onClick={()=>onSelectScene?.('S10')}>ASEAN ACT</button>
       </div>
     </div>
   );
@@ -3185,7 +3594,7 @@ function OperationsActDock({ plants=[], onHireDeploy, onOpenAgent }) {
       <div className="oad-hire-card">
         <span>{zh?'数字人才市场':'DIGITAL TALENT MARKET'}</span>
         <b>86</b>
-        <button type="button" onClick={onHireDeploy}>HIRE&DEPLOY</button>
+        <button type="button" onClick={onHireDeploy}>HIRE & DEPLOY</button>
       </div>
     </div>
   );
@@ -3195,15 +3604,19 @@ function TalentMarketOverlay({ onHireDeploy }) {
   const l = useLang(); const zh = l !== 'en';
   return (
     <div className="talent-map-overlay">
+      <div className="training-beacon" aria-hidden="true">
+        <i/><i/><i/>
+      </div>
       <div className="talent-map-card training">
         <span>{zh?'模型回流':'MODEL LOOP'}</span>
-        <b>AI训练中心</b>
+        <b>{zh?'AI训练中心':'AI Training Center'}</b>
+        <strong>Token Reactor</strong>
         <em>Policy · Case · Skill</em>
       </div>
       <div className="talent-map-card market">
         <span>{zh?'数字员工':'DIGITAL CREW'}</span>
-        <b>数字人才市场</b>
-        <button type="button" onClick={onHireDeploy}>HIRE&DEPLOY</button>
+        <b>{zh?'数字人才市场':'Digital Talent Market'}</b>
+        <button type="button" onClick={onHireDeploy}>HIRE & DEPLOY</button>
       </div>
     </div>
   );
@@ -3252,7 +3665,7 @@ function PackagePicker({ onPick, onClose }) {
 function TalentDeployFlight({ robots=[], onComplete }) {
   React.useEffect(() => {
     const maxDelay = robots.reduce((m, r) => Math.max(m, r.delay || 0), 0);
-    const timer = window.setTimeout(() => onComplete?.(), 5400 + maxDelay * 1000);
+    const timer = window.setTimeout(() => onComplete?.(), 6800 + maxDelay * 1000);
     return () => window.clearTimeout(timer);
   }, [robots?.length]);
   return (
@@ -3278,7 +3691,10 @@ function TalentDeployFlight({ robots=[], onComplete }) {
           </div>
         );
       })}
-      <div className="deploy-target-ring"><span>Cebu-N · iRun Managed</span></div>
+      <div className="deploy-target-ring">
+        <i/><i/><i/>
+        <span>Cebu-N · iRun Managed</span>
+      </div>
     </div>
   );
 }
@@ -3292,7 +3708,7 @@ function CameraDrillOverlay() {
   );
 }
 
-window.IRUN_UI = { TopBar, EventStream, EventStreamTab, DispatchPanel, DispatchTab, AgentDock, MiniMap, QuickFuncs, AgentModal, AgentsRail, isAgentRailDisabled, RobotAvatar, ModeStrip, SkillModal, PlantTitle, DroneFlight, PlantRobot, PlantAgentField, DispatchedRobots, OverviewDispatchRobot, ScenarioDirectorRail, ManagerDecisionConsole, DigitalTeamOrgPanel, OperationsActDock, TalentMarketOverlay, PackagePicker, TalentDeployFlight, CameraDrillOverlay, MissionFeedbackLayer, OperationsBigScreenLayer, useClock, fmtTime, fmtDate, fmtDateTime, LangCtx };
+window.IRUN_UI = { TopBar, EventStream, EventStreamTab, DispatchPanel, DispatchTab, AgentDock, MiniMap, QuickFuncs, AgentModal, AgentsRail, isAgentRailDisabled, RobotAvatar, ModeStrip, SkillModal, PlantTitle, DroneFlight, PlantRobot, PlantAgentField, DispatchedRobots, OverviewDispatchRobot, ScenarioDirectorRail, ManagerDecisionConsole, DigitalTeamOrgPanel, OperationsActDock, TalentMarketOverlay, PackagePicker, TalentDeployFlight, CameraDrillOverlay, MissionFeedbackLayer, OperationsBigScreenLayer, ManilaSiteOverlay, ManilaAgentDossier, useClock, fmtTime, fmtDate, fmtDateTime, LangCtx };
 
 // ──────────────────────────────────────────────────────────────────────
 // Collapsed event-stream tab — vertical handle on the left

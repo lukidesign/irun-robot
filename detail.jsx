@@ -453,6 +453,7 @@ function PIDCardKpi({plant, mode, scenarioIdx, scenario, cur, stepIdx, progress,
   const isManaged = plant?.irunManaged || plant?.enStatus === 'iRun Managed';
   const isStandard = !demoProfile && !isManaged;
   const modeLocked = !!demoProfile || isStandard;
+  const isManilaOps = plant?.id === '1879736315115044864';
   return (
     <div className="pid-card pid-c-kpi pid-no-open">
       <div className="pid-k-top">
@@ -461,11 +462,27 @@ function PIDCardKpi({plant, mode, scenarioIdx, scenario, cur, stepIdx, progress,
           <button className="pid-k-btn">▶ {zh?'播放':'Play'}</button>
         )}
       </div>
-      <div className="pid-k-sub">{zh ? plant.region : (plant.enRegion || plant.region)} · {plant.capacity} MW · {zh?'实时功率':'Live'} {plant.power} MW</div>
+      <div className="pid-k-sub">
+        {isManilaOps
+          ? (zh
+              ? '菲律宾·马尼拉 · 装机100MWp · 约18万组件 · 6,000组串 · 数百台组串式逆变器'
+              : 'Philippines · Manila · 100MWp · ~180k modules · 6,000 strings · hundreds of string inverters')
+          : `${zh ? plant.region : (plant.enRegion || plant.region)} · ${plant.capacity} MW · ${zh?'实时功率':'Live'} ${plant.power} MW`}
+      </div>
       <div className="pid-k-stats">
-        <div className="s"><span className="l">{zh?'日发电':"Today's Gen"}</span><span className="v">{plant.gen}<small>MWh</small></span></div>
-        <div className="s"><span className="l">{zh?'告警':'Alerts'}</span><span className="v" style={{color: plant.alerts>4?'var(--rose)':'#fff'}}>{plant.alerts}</span></div>
-        <div className="s"><span className="l">PR</span><span className="v">{(82+plant.id.charCodeAt(1)%7).toFixed(1)}%</span></div>
+        {isManilaOps ? (
+          <>
+            <div className="s"><span className="l">{zh?'日发电':"Today's Gen"}</span><span className="v">400<small>MWh</small></span></div>
+            <div className="s"><span className="l">{zh?'可利用率':'Availability'}</span><span className="v">99.4%</span></div>
+            <div className="s"><span className="l">PR</span><span className="v">82.1%</span></div>
+          </>
+        ) : (
+          <>
+            <div className="s"><span className="l">{zh?'日发电':"Today's Gen"}</span><span className="v">{plant.gen}<small>MWh</small></span></div>
+            <div className="s"><span className="l">{zh?'告警':'Alerts'}</span><span className="v" style={{color: plant.alerts>4?'var(--rose)':'#fff'}}>{plant.alerts}</span></div>
+            <div className="s"><span className="l">PR</span><span className="v">{(82+plant.id.charCodeAt(1)%7).toFixed(1)}%</span></div>
+          </>
+        )}
       </div>
       <div className={`pid-k-mode${modeLocked ? ' pid-k-mode-locked' : ''}`}>
         {isStandard ? (
