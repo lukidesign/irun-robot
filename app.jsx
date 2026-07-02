@@ -69,7 +69,7 @@ function IntroTransition() {
     closingRef.current = true;
     clearIntroTimers();
     setClosing(true);
-    finishTimerRef.current = window.setTimeout(finish, 560);
+    finishTimerRef.current = window.setTimeout(finish, 820);
   }, [clearIntroTimers, finish]);
 
   const showLogoFallback = useCallback(() => {
@@ -720,7 +720,7 @@ function App(){
       {(viewMode === 'model' || viewMode === 'day' || viewMode === 'night') && <Scene3D mode={viewMode}/>}
 
       {/* top KPIs */}
-      <TopBar focusPlant={focusPlant} plants={tenantPlants} agg={tenantAgg} onPlantChange={handlePlantChange} tenant={tenant} tenantIdx={tenantIdx} onTenant={onTenantChange} onBack={()=>setFocusId(null)} lang={lang} onLang={toggleLang} theme={theme} onTheme={toggleTheme} simulator={simulatorState} agentsRailVisible={agentsRailVisible} onAgentsRailToggle={()=>setAgentsRailVisible(v=>!v)}/>
+      <TopBar focusPlant={focusPlant} plants={tenantPlants} agg={tenantAgg} onPlantChange={handlePlantChange} tenant={tenant} tenantIdx={tenantIdx} onTenant={onTenantChange} onBack={()=>setFocusId(null)} lang={lang} onLang={toggleLang} theme={theme} onTheme={toggleTheme} agentsRailVisible={agentsRailVisible} onAgentsRailToggle={()=>setAgentsRailVisible(v=>!v)}/>
 
       <IntroTransition/>
 

@@ -3346,7 +3346,7 @@ function RobotAvatar({agent, size=58, glow=false}){
     order:'doc', sched:'cal', pv:'panel', query:'chat', ops:'star',
   })[agent.id] || 'dot';
   return (
-    <svg viewBox="0 0 100 100" width={size} height={size} style={{display:'block'}}>
+    <svg className="agent-avatar" viewBox="0 0 100 100" width={size} height={size} style={{display:'block'}}>
       <defs>
         <radialGradient id={`rb-bg-${agent.id}`} cx="50%" cy="35%" r="70%">
           <stop offset="0%" stopColor="#1c2a4a"/>

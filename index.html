@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>irun robot · 数字运维工作台</title>
+<link rel="icon" type="image/png" href="assets/app/brand/irun-icon.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet" />
@@ -2058,12 +2059,12 @@ body{
 .intro-gate{
   position:absolute;inset:0;z-index:90;
   display:grid;place-items:center;overflow:hidden;
-  background:#030710;color:#fff;pointer-events:auto;
-  opacity:1;transition:opacity .56s ease, filter .56s ease;
+  background:rgba(3,7,16,0.04);color:#fff;pointer-events:auto;
+  opacity:1;transition:opacity .72s ease, filter .72s ease, background .72s ease;
 }
 .intro-video-el{
   position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
-  background:#030710;transform:scale(1.01);transition:transform .56s ease, opacity .56s ease;
+  background:transparent;transform:scale(1.01);transition:transform .72s ease, opacity .72s ease;
 }
 .intro-gate::after{
   content:"";position:absolute;inset:0;pointer-events:none;
@@ -2080,8 +2081,9 @@ body{
   box-shadow:0 0 18px rgba(34,211,238,0.18);
 }
 .intro-skip:hover{background:rgba(34,211,238,0.16);color:#fff;border-color:var(--cyan)}
-.intro-gate.intro-closing{opacity:0;filter:blur(8px);pointer-events:none}
-.intro-gate.intro-closing .intro-video-el{transform:scale(1.04);opacity:.32}
+.intro-gate.intro-loading{background:rgba(3,7,16,0.82)}
+.intro-gate.intro-closing{opacity:0;filter:blur(2px);background:transparent;pointer-events:none}
+.intro-gate.intro-closing .intro-video-el{transform:scale(1.035);opacity:0}
 .intro-logo-loading{
   position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:22px;
 }

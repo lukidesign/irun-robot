@@ -116,9 +116,9 @@ function map2EnergyPath(plant, idx, meta){
   return `M${MAP2_TOKEN_SOURCE.x} ${MAP2_TOKEN_SOURCE.y} C${c1x} ${c1y}, ${c2x} ${c2y}, ${x} ${y}`;
 }
 const MAP2_PATROL_GROUPS = [
-  { path: 1, offsets: [[0,0], [-34,24], [32,28]], delays: [0, -4.2, -8.6] },
-  { path: 2, offsets: [[0,0], [-38,22], [36,25], [2,-30]], delays: [0, -3.7, -8.1, -12.4] },
-  { path: 3, offsets: [[0,0], [-36,22], [34,24]], delays: [0, -4.8, -9.6] },
+  { path: 1, offsets: [[0,0]], delays: [0] },
+  { path: 2, offsets: [[0,0]], delays: [0] },
+  { path: 3, offsets: [[0,0]], delays: [0] },
 ];
 function Map2Overlay({ focusId, onFocus, onRobotClick, subMode, tenantId, plants }) {
   const zh = React.useContext(window.IRUN_UI?.LangCtx || React.createContext('zh')) !== 'en';
