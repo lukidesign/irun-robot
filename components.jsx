@@ -2873,6 +2873,83 @@ const MANILA_MANAGER_CARDS = [
   },
 ];
 
+const MANILA_SCENE_ROBOTS = {
+  alarm: [
+    { id:'alert', x:39, y:54, note:'Alarm' },
+    { id:'diag', x:45, y:43, note:'Check' },
+    { id:'pv', x:60, y:50, note:'PV' },
+  ],
+  event: [
+    { id:'alert', x:39, y:54, note:'Alarm' },
+    { id:'diag', x:45, y:43, note:'Diagnosis' },
+    { id:'pv', x:60, y:50, note:'String' },
+  ],
+  collab: [
+    { id:'alert', x:28, y:38, note:'Alarm' },
+    { id:'diag', x:45, y:43, note:'Diagnose' },
+    { id:'order', x:41, y:62, note:'Ticket' },
+    { id:'sched', x:60, y:50, note:'Schedule' },
+    { id:'safe', x:81, y:50, note:'Safety' },
+  ],
+  arbitration: [
+    { id:'alert', x:28, y:38, note:'Observe' },
+    { id:'diag', x:45, y:43, note:'Intervene' },
+    { id:'ops', x:60, y:50, note:'Decision' },
+  ],
+  closure: [
+    { id:'order', x:41, y:62, note:'Closed' },
+    { id:'sched', x:60, y:50, note:'Return' },
+    { id:'ops', x:81, y:50, note:'Report' },
+  ],
+  outcomes: [
+    { id:'query', x:41, y:62, note:'Data' },
+    { id:'ops', x:60, y:50, note:'HQ' },
+    { id:'pv', x:45, y:43, note:'Yield' },
+    { id:'insp', x:81, y:50, note:'Cases' },
+  ],
+  managed: [
+    { id:'ops', x:28, y:38, note:'Managed' },
+    { id:'sched', x:45, y:43, note:'Time' },
+    { id:'safe', x:60, y:50, note:'Guard' },
+    { id:'insp', x:81, y:50, note:'Inspect' },
+    { id:'order', x:41, y:62, note:'Close' },
+  ],
+  managerDay: [
+    { id:'diag', x:45, y:43, note:'Context' },
+    { id:'sched', x:60, y:50, note:'Plan' },
+    { id:'ops', x:41, y:62, note:'Call' },
+  ],
+};
+
+function ManilaSceneRobots({ scene, onOpenAgent, zh }) {
+  const robots = MANILA_SCENE_ROBOTS[scene] || [];
+  if (!robots.length) return null;
+  return (
+    <div className="manila-scene-robots" aria-hidden="false">
+      {robots.map((r, idx) => {
+        const a = _ABI[r.id];
+        if (!a) return null;
+        const color = _CATS[a.cat]?.color || '#22d3ee';
+        return (
+          <button
+            key={`${scene}-${r.id}-${idx}`}
+            type="button"
+            className="manila-scene-bot"
+            style={{ left:`${r.x}%`, top:`${r.y}%`, '--agent-color': color, '--i': idx }}
+            onClick={()=>onOpenAgent?.(r.id)}
+            title={agentName(a, zh)}
+          >
+            <RobotAvatar agent={a} size={50} glow/>
+            <b>{a.code}</b>
+            <span>{zh ? a.short : (a.en || a.short)}</span>
+            <em>{r.note}</em>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function ManilaSceneCaption({ scene, zh }) {
   const meta = MANILA_SCENE_TEXT[scene];
   if (!meta) return null;
@@ -3054,13 +3131,19 @@ function ManilaManagerScene({ zh, onOpenAgent }) {
 }
 
 function ManilaOutcomesScene({ zh }) {
+  const streams = [
+    [30, .1, 1], [36, .42, .85], [43, .78, 1.1], [50, .2, .95],
+    [56, .58, 1.15], [62, .9, .82], [68, .28, 1], [74, .68, .9],
+    [39, 1.08, .7], [58, 1.22, .75], [78, 1.38, .8], [47, 1.52, .65],
+    [66, 1.66, .7], [84, 1.8, .72],
+  ];
   return (
     <div className="manila-outcomes-scene">
       <div className="outcomes-uplink">
         <span>{zh?'单站成果上行':'SITE DATA UPLINK'}</span>
         <b>{zh?'闭环 +241 · Token +12,840 · 新经验 +6 · 损失 ↓12,000 kWh':'Closures +241 · Tokens +12,840 · Cases +6 · Loss ↓12,000 kWh'}</b>
       </div>
-      {Array.from({length:7}).map((_,idx)=><i key={idx} style={{'--i':idx}}/>)}
+      {streams.map(([x, delay, scale], idx)=><i key={idx} style={{'--x':`${x}%`,'--d':`${delay}s`,'--s':scale}}/>)}
     </div>
   );
 }
@@ -3093,6 +3176,7 @@ function ManilaSiteOverlay({ scene, onOpenAgent }) {
           );
         })}
       </div>
+      <ManilaSceneRobots scene={scene} zh={zh} onOpenAgent={onOpenAgent}/>
       <ManilaSceneCaption scene={scene} zh={zh}/>
       {isAlarmScene && <ManilaAlarmScene scene={scene} zh={zh} onOpenAgent={onOpenAgent}/>}
       {scene === 'collab' && <ManilaCollabScene zh={zh} onOpenAgent={onOpenAgent}/>}
@@ -3605,7 +3689,7 @@ function TalentMarketOverlay({ onHireDeploy }) {
   return (
     <div className="talent-map-overlay">
       <div className="training-beacon" aria-hidden="true">
-        <i/><i/><i/>
+        <i/><i/><i/><i/><i/>
       </div>
       <div className="talent-map-card training">
         <span>{zh?'模型回流':'MODEL LOOP'}</span>

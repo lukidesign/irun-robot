@@ -139,17 +139,43 @@ function TalentSquadDock({packages, onPick, zh}) {
   );
 }
 
+function CountUpNumber({ target, suffix = '', duration = 1800 }) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    let frame = 0;
+    let raf = 0;
+    const start = performance.now();
+    const run = (now) => {
+      const progress = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      frame = Math.round(target * eased);
+      setValue(frame);
+      if (progress < 1) raf = requestAnimationFrame(run);
+    };
+    raf = requestAnimationFrame(run);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return <>{value.toLocaleString('en-US')}{suffix}</>;
+}
+
 function OutcomesFlowPopup({ minimized, zh }) {
+  const steps = [
+    zh?'单站成果':'Site outcomes',
+    zh?'公司层聚合':'Company aggregation',
+    zh?'经验回流':'Experience return',
+    zh?'能力同步':'Capability sync',
+  ];
+  const metrics = [
+    [12, zh?'托管电站':'Managed plants'],
+    [3180, zh?'今日全网自主闭环':'Network closures today'],
+    [86, zh?'在线数字员工':'Digital staff online'],
+    [58, zh?'新增回流案例':'New returned cases'],
+  ];
   return (
     <div className={`outcomes-flow-popup${minimized ? ' minimized' : ''}`}>
       <div className="outcomes-progress">
-        {[
-          zh?'单站成果':'Site outcomes',
-          zh?'公司层聚合':'Company aggregation',
-          zh?'经验回流':'Experience return',
-          zh?'能力同步':'Capability sync',
-        ].map((step, idx) => (
-          <div key={step} className={idx < 3 ? 'done' : 'active'}>
+        {steps.map((step, idx) => (
+          <div key={step} className={idx < 3 ? 'done' : 'active'} style={{'--i': idx}}>
             <i>{idx + 1}</i>
             <span>{step}</span>
           </div>
@@ -159,10 +185,12 @@ function OutcomesFlowPopup({ minimized, zh }) {
         <span>{zh?'成果汇入公司层':'OUTCOMES INTO COMPANY LAYER'}</span>
         <b>{zh?'自主闭环 + · Token 消耗 + · 新经验 + · 电量损失 ↓':'Autonomous closures + · Token spend + · New experience + · Energy loss ↓'}</b>
         <div className="outcomes-company-grid">
-          <div><strong>12</strong><em>{zh?'托管电站':'Managed plants'}</em></div>
-          <div><strong>3,180</strong><em>{zh?'今日全网自主闭环':'Network closures today'}</em></div>
-          <div><strong>86</strong><em>{zh?'在线数字员工':'Digital staff online'}</em></div>
-          <div><strong>58</strong><em>{zh?'新增回流案例':'New returned cases'}</em></div>
+          {metrics.map(([target, label], idx) => (
+            <div key={label} style={{'--i': idx}}>
+              <strong><CountUpNumber target={target} duration={1600 + idx * 220}/></strong>
+              <em>{label}</em>
+            </div>
+          ))}
         </div>
         <p>{zh?'经验光点正在回流 AI 训练中心，并把能力同步给其他电站。':'Experience light points are returning to the AI training center and syncing capability to other plants.'}</p>
       </div>
@@ -632,10 +660,10 @@ function App(){
     }
   }, [focusPlant?.id, focusPlant?.irunManaged, focusPlant?.enStatus]);
 
-  // 焦点电站切换：隐藏调度列表内电站默认关闭调度，其余电站默认打开
+  // 焦点电站切换：隐藏调度列表内电站和 Manila 演示站默认关闭调度，其余电站默认打开
   useEffect(() => {
     if (!focusId) return;
-    if (isDispatchHiddenPlant(focusId)) {
+    if (String(focusId) === MANILA_PLANT_ID || isDispatchHiddenPlant(focusId)) {
       setDispatchCollapsed(true);
       try { localStorage.setItem('irun:dispatch-collapsed', '1'); } catch (e) {}
       setStreamCollapsed(false);
