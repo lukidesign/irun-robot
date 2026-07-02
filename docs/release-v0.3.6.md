@@ -1,4 +1,4 @@
-# Release v0.3.0
+# Release v0.3.6
 
 发布日期：2026-07-02
 
@@ -18,4 +18,4 @@
 
 - Babel 静态转译检查。
 - `git diff --check`。
-- 本地静态预览 HTTP 可达检查。
+- GitHub Pages 在线预览检查。
